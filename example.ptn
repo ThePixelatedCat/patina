@@ -1,0 +1,9 @@
+fn sum(a, b) -> a + b
+
+fn sum(a: int, b: int) -> int {
+    a + b
+}
+
+let twelve = 12;
+let inc = sum(1, _)
+let thirteen = inc(twelve)
