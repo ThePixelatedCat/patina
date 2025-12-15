@@ -4,7 +4,7 @@ use std::{env, fs};
 mod lexer;
 mod parser;
 
-use lexer::Lexer;
+use parser::Parser;
 
 fn main() -> anyhow::Result<()> {
     let source_path = env::args()
@@ -12,10 +12,9 @@ fn main() -> anyhow::Result<()> {
         .ok_or(anyhow!("source filepath argument missing"))?;
     let source = fs::read_to_string(source_path)?;
 
-    let mut lexer = Lexer::new(&source);
-    let tokens = lexer.tokenize();
+    let mut parser = Parser::new(&source);
 
-    let ast = parser::parse(tokens);
+    let ast = parser.expression();
 
     Ok(())
 }
