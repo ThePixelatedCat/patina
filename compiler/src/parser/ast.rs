@@ -1,6 +1,21 @@
 pub struct Ast {}
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum Stmt {
+    Let {
+        mutable: bool,
+        ident: String,
+        type_annotation: Option<String>,
+        value: Expr,
+    },
+    Assign {
+        ident: String,
+        value: Expr,
+    },
+    Expr(Expr),
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Literal(Lit),
     Ident(String),
@@ -17,6 +32,15 @@ pub enum Expr {
         op: Unop,
         expr: Box<Expr>,
     },
+    If {
+        cond: Box<Expr>,
+        th: Box<Expr>,
+        el: Option<Box<Expr>>,
+    },
+    Block {
+        body: Vec<Stmt>,
+        trailing: Option<Box<Expr>>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -28,6 +52,18 @@ pub enum Lit {
     Bool(bool),
     Array(Vec<Expr>),
     Map(Vec<(Expr, Expr)>),
+}
+
+impl From<Lit> for Expr {
+    fn from(value: Lit) -> Self {
+        Expr::Literal(value)
+    }
+}
+
+impl From<Lit> for Box<Expr> {
+    fn from(value: Lit) -> Self {
+        Box::new(Expr::Literal(value))
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -55,15 +91,17 @@ pub enum Unop {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct FunDef {
-    name: String,
-    params: Vec<Binding>,
-    return_type: Option<String>,
-    body: Expr,
+pub enum Item {
+    FunDef {
+        name: String,
+        params: Vec<Arg>,
+        return_type: Option<String>,
+        body: Expr,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Binding {
+pub struct Arg {
     mutable: bool,
     name: String,
     type_annotation: Option<String>,

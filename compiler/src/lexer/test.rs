@@ -71,11 +71,20 @@ fn maybe_multiple_char_tokens() {
 
 #[test]
 fn keywords() {
-    let mut lexer = Lexer::new("if let = match else fn");
+    let mut lexer = Lexer::new("if mut let = match else fn");
     let tokens: Vec<_> = lexer.tokenize();
     assert_tokens!(
         tokens,
-        [T::If, T::Let, T::Eq, T::Match, T::Else, T::Fn, T::Eof,]
+        [
+            T::If,
+            T::Mut,
+            T::Let,
+            T::Eq,
+            T::Match,
+            T::Else,
+            T::Fn,
+            T::Eof,
+        ]
     );
 }
 
@@ -111,7 +120,7 @@ fn function() {
         // this is a comment!
         fn test(var: Type, var2_: bool) {
             let x = '\n' + "String content \"\\ test" + 7 / 27.3e-2^4;
-            let chars = x.chars();
+            let mut chars = x.chars();
             if let Some(c) = chars.next() {
                 x = x + c;
             } else if !var2_ {
@@ -153,6 +162,7 @@ fn function() {
             T::Semicolon,
             // `chars` assignment
             T::Let,
+            T::Mut,
             T::Ident("chars".into()),
             T::Eq,
             T::Ident("x".into()),

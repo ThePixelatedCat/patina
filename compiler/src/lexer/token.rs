@@ -1,4 +1,6 @@
-#[derive(PartialEq, Debug)]
+use std::mem::{self, Discriminant};
+
+#[derive(PartialEq, Debug, Clone)]
 pub enum Token {
     // Literals
     IntLit(i64),
@@ -39,6 +41,7 @@ pub enum Token {
     Geq,
     // Keywords
     Let,
+    Mut,
     Fn,
     If,
     Else,
@@ -49,4 +52,10 @@ pub enum Token {
     Ident(String),
     Error { start: usize, end: usize },
     Eof,
+}
+
+impl Token {
+    pub fn ty(&self) -> Discriminant<Self> {
+        mem::discriminant(self)
+    }
 }

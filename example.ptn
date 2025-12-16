@@ -1,8 +1,9 @@
 fn sum(a, b) -> a + b
-
-fn sum(a: int, b: int) -> int {
+fn sum_annotated(a: int, b: int): int -> a + b
+fn sum_block(a: int, b: int): int -> {
     a + b
 }
+let sum_lambda = (a, b) -> a + b;
 
 let twelve = 12;
 let inc = sum(1, _)

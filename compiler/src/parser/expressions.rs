@@ -35,10 +35,7 @@ impl InfixOperator for Bop {
     }
 }
 
-impl<'input, I> Parser<I>
-where
-    I: Iterator<Item = Token>,
-{
+impl<I: Iterator<Item = Token>> Parser<I> {
     pub fn expression(&mut self) -> Expr {
         self.parse_expression(0)
     }
@@ -46,9 +43,9 @@ where
     pub fn parse_expression(&mut self, binding_power: u8) -> Expr {
         let mut lhs = match self.peek() {
             Token::LParen => {
-                self.consume(dis(&Token::LParen));
-                let expr = self.parse_expression(0);
-                self.consume(dis(&Token::RParen));
+                self.consume(Token::LParen.ty());
+                let expr = self.expression();
+                self.consume(Token::RParen.ty());
                 expr
             }
             Token::IntLit(_)
@@ -72,31 +69,48 @@ where
                 let Some(Token::Ident(ident)) = self.next() else {
                     unreachable!()
                 };
-                Expr::Ident(ident)
-            }
-            // Token::If => {
-            //     self.consume(dis(&Token::If));
-            //     self.consume(dis(&Token::LParen));
-            //     let cond = self.parse_expression(0);
-            //     self.consume(dis(&Token::RParen));
-            //     let th = self.parse_expression(0);
-            //     self.consume(dis(&Token::Else));
-            //     let el = self.parse_expression(0);
+                let ident = Expr::Ident(ident);
 
-            //     Expr::If {
-            //         cond: Box::new(cond),
-            //         th: Box::new(th),
-            //         el: Box::new(el),
-            //     }
-            // }
-            // Token::LBrace => {
-            //     let mut exprs = Vec::new();
-            //     while self.peek() != &Token::RBrace {
-            //         exprs.push(self.parse_expression(0));
-            //     }
-            //     self.consume(dis(&Token::RBrace));
-            //     Expr::Block(exprs)
-            // }
+                if self.at(Token::LParen.ty()) {
+                    self.consume(Token::LParen.ty());
+
+                    let mut args = Vec::new();
+                    while !self.at(Token::RParen.ty()) {
+                        args.push(self.expression());
+
+                        if self.at(Token::Comma.ty()) {
+                            self.consume(Token::Comma.ty());
+                        }
+                    }
+                    self.consume(Token::RParen.ty());
+
+                    Expr::FnCall {
+                        fun: Box::new(ident),
+                        args,
+                    }
+                } else {
+                    ident
+                }
+            }
+            Token::If => {
+                self.consume(Token::If.ty());
+                self.consume(Token::LParen.ty());
+                let cond = self.expression();
+                self.consume(Token::RParen.ty());
+
+                let th = self.expression();
+
+                let el = self.at(Token::Else.ty()).then(|| {
+                    self.consume(Token::Else.ty());
+                    Box::new(self.expression())
+                });
+
+                Expr::If {
+                    cond: Box::new(cond),
+                    th: Box::new(th),
+                    el,
+                }
+            }
             op @ (Token::Minus | Token::Bang) => {
                 let dis = dis(op);
                 let op = match op {
@@ -131,8 +145,10 @@ where
                 Token::RAngle => Bop::Gt,
                 Token::Geq => Bop::Geq,
                 Token::Eof => break,
-                Token::RParen | Token::RBrace | Token::Comma | Token::Semicolon => break,
-                token => panic!("Unknown operator: `{:?}`", token),
+                Token::RParen | Token::RBrace | Token::Comma | Token::Semicolon | Token::Else => {
+                    break;
+                }
+                token => panic!("unknown token `{token:?}`"),
             };
 
             let (left_binding_power, right_binding_power) = op.binding_power();

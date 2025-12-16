@@ -1,5 +1,6 @@
 mod ast;
 mod expressions;
+mod hierarchy;
 #[cfg(test)]
 mod test;
 
@@ -23,10 +24,7 @@ impl<'input> Parser<Lexer<'input>> {
     }
 }
 
-impl<'input, I> Parser<I>
-where
-    I: Iterator<Item = Token>,
-{
+impl<I: Iterator<Item = Token>> Parser<I> {
     /// Look-ahead one token and see what kind of token it is.
     pub(crate) fn peek(&mut self) -> &Token {
         self.tokens.peek().unwrap_or(&Token::Eof)
@@ -45,10 +43,9 @@ where
     /// Move forward one token in the input and check
     /// that we pass the kind of token we expect.
     pub(crate) fn consume(&mut self, expected: Discriminant<Token>) {
-        let token = self.next().expect(&format!(
-            "Expected to consume `{:?}`, but there was no next token",
-            expected
-        ));
+        let token = self.next().unwrap_or_else(|| {
+            panic!("Expected to consume `{expected:?}`, but there was no next token")
+        });
         assert_eq!(
             discriminant(&token),
             expected,
