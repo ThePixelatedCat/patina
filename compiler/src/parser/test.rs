@@ -121,7 +121,7 @@ fn parse_binary_expressions() {
         }
     );
 
-    let expr = parse_expr("4 ^ 2 ^ 3");
+    let expr = parse_expr("4 ** 2 ** 3");
     assert_eq!(
         expr,
         Expr::BinaryOp {
@@ -132,6 +132,20 @@ fn parse_binary_expressions() {
                 lhs: Lit::Int(2).into(),
                 rhs: Lit::Int(3).into()
             })
+        }
+    );
+
+    let expr = parse_expr("4 ^ 2 ^ 3");
+    assert_eq!(
+        expr,
+        Expr::BinaryOp {
+            op: Bop::Xor,
+            lhs: Box::new(Expr::BinaryOp {
+                op: Bop::Xor,
+                lhs: Lit::Int(4).into(),
+                rhs: Lit::Int(2).into()
+            }),
+            rhs: Lit::Int(3).into(),
         }
     );
 }

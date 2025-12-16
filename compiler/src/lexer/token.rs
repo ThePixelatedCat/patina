@@ -19,7 +19,6 @@ pub enum Token {
     Ampersand,
     Bar,
     Bang,
-    UpArrow,
     LAngle,
     RAngle,
     Plus,
@@ -33,8 +32,10 @@ pub enum Token {
     Semicolon,
     Underscore,
     // Operators
+    Exponent,
     And,
     Or,
+    Xor,
     Eqq,
     Neq,
     Leq,

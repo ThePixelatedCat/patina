@@ -1,5 +1,5 @@
 use super::{
-    Parser, Token, ParseError,
+    ParseError, Parser, Token,
     ast::{Bop, Expr, Lit, Unop},
 };
 
@@ -24,11 +24,11 @@ impl InfixOperator for Bop {
         match self {
             Bop::Or => (1, 2),
             Bop::And => (3, 4),
-            Bop::Eqq | Bop::Neq => (5, 6),
+            Bop::Xor | Bop::Eqq | Bop::Neq => (5, 6),
             Bop::Gt | Bop::Lt | Bop::Leq | Bop::Geq => (7, 8),
             Bop::Add | Bop::Sub => (9, 10),
             Bop::Mul | Bop::Div => (11, 12),
-            Bop::Exp => (22, 21), // <- This binds stronger to the left!
+            Bop::Exp => (22, 21),
         }
     }
 }
@@ -117,7 +117,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                     Token::Bang => Unop::Not,
                     _ => unreachable!(),
                 };
-                
+
                 self.next();
 
                 let right_binding_power = op.binding_power();
@@ -136,7 +136,8 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 Token::Minus => Bop::Sub,
                 Token::Times => Bop::Mul,
                 Token::FSlash => Bop::Div,
-                Token::UpArrow => Bop::Exp,
+                Token::Xor => Bop::Xor,
+                Token::Exponent => Bop::Exp,
                 Token::Eqq => Bop::Eqq,
                 Token::Neq => Bop::Neq,
                 Token::And => Bop::And,

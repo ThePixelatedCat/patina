@@ -75,7 +75,7 @@ pub enum Bop {
     Exp,
     And,
     Or,
-    //Xor,
+    Xor,
     Gt,
     Lt,
     Eqq,

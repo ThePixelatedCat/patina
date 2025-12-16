@@ -39,7 +39,7 @@ lazy_static! {
     static ref IDENTIFIER_REGEX: Regex = Regex::new(r#"^[A-Za-z_]([A-Za-z_]|\d)*"#).unwrap();
 }
 
-pub(super) const RULES: [Rule; 42] = {
+pub(super) const RULES: [Rule; 43] = {
     use Token as T;
     [
         |input| {
@@ -89,7 +89,7 @@ pub(super) const RULES: [Rule; 42] = {
         |input| match_single_char(input, '&').map(|len| (T::Ampersand, len)),
         |input| match_single_char(input, '|').map(|len| (T::Bar, len)),
         |input| match_single_char(input, '!').map(|len| (T::Bang, len)),
-        |input| match_single_char(input, '^').map(|len| (T::UpArrow, len)),
+        |input| match_single_char(input, '^').map(|len| (T::Xor, len)),
         |input| match_single_char(input, '<').map(|len| (T::LAngle, len)),
         |input| match_single_char(input, '>').map(|len| (T::RAngle, len)),
         |input| match_single_char(input, '+').map(|len| (T::Plus, len)),
@@ -104,6 +104,7 @@ pub(super) const RULES: [Rule; 42] = {
         |input| match_single_char(input, '_').map(|len| (T::Underscore, len)),
         |input| match_two_chars(input, '=', '=').map(|len| (T::Eqq, len)),
         |input| match_two_chars(input, '!', '=').map(|len| (T::Neq, len)),
+        |input| match_two_chars(input, '*', '*').map(|len| (T::Exponent, len)),
         |input| match_two_chars(input, '&', '&').map(|len| (T::And, len)),
         |input| match_two_chars(input, '|', '|').map(|len| (T::Or, len)),
         |input| match_two_chars(input, '<', '=').map(|len| (T::Leq, len)),
@@ -117,8 +118,7 @@ pub(super) const RULES: [Rule; 42] = {
         |input| match_keyword(input, "true").map(|len| (T::True, len)),
         |input| match_keyword(input, "false").map(|len| (T::False, len)),
         |input| {
-            match_regex(input, &IDENTIFIER_REGEX)
-                .map(|len| (T::Ident(input[..len].into()), len))
+            match_regex(input, &IDENTIFIER_REGEX).map(|len| (T::Ident(input[..len].into()), len))
         },
     ]
 };

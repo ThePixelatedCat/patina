@@ -1,6 +1,6 @@
 use std::cell::LazyCell;
 
-use super::{Parser, ParseError, Token, ast::Stmt};
+use super::{ParseError, Parser, Token, ast::Stmt};
 
 impl<I: Iterator<Item = Token>> Parser<I> {
     pub fn statement(&mut self) -> Result<Stmt, ParseError> {
@@ -16,16 +16,26 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
                 let ident = match self.next() {
                     Some(Token::Ident(ident)) => ident,
-                    Some(token) => return Err(ParseError::MismatchedToken { expected: *ident_discrim, found: token.ty() }),
-                    None => return Err(ParseError::NoToken)
+                    Some(token) => {
+                        return Err(ParseError::MismatchedToken {
+                            expected: *ident_discrim,
+                            found: token.ty(),
+                        });
+                    }
+                    None => return Err(ParseError::MissingToken),
                 };
 
                 let type_annotation = if self.at(Token::Colon.ty()) {
                     self.next();
                     match self.next() {
                         Some(Token::Ident(ty)) => Some(ty),
-                        Some(token) => return Err(ParseError::MismatchedToken { expected: *ident_discrim, found: token.ty() }),
-                        None => return Err(ParseError::NoToken)
+                        Some(token) => {
+                            return Err(ParseError::MismatchedToken {
+                                expected: *ident_discrim,
+                                found: token.ty(),
+                            });
+                        }
+                        None => return Err(ParseError::MissingToken),
                     }
                 } else {
                     None
@@ -53,7 +63,8 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             }
             _ => {
                 let expr = self.expression()?;
-                self.consume(Token::Semicolon.ty()).map(|_| Stmt::Expr(expr))?
+                self.consume(Token::Semicolon.ty())
+                    .map(|_| Stmt::Expr(expr))?
             }
         })
     }

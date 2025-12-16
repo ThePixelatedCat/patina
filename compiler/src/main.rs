@@ -14,7 +14,7 @@ fn main() -> anyhow::Result<()> {
 
     let mut parser = Parser::new(&source);
 
-    let ast = parser.expression();
+    let _ = parser.statement()?;
 
     Ok(())
 }

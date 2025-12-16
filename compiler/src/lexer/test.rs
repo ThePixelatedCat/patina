@@ -61,11 +61,20 @@ fn single_char_tokens_with_whitespace() {
 
 #[test]
 fn maybe_multiple_char_tokens() {
-    let mut lexer = Lexer::new("&&=<=_!=||");
+    let mut lexer = Lexer::new("&&=<=_!=||**");
     let tokens = lexer.tokenize();
     assert_tokens!(
         tokens,
-        [T::And, T::Eq, T::Leq, T::Underscore, T::Neq, T::Or, T::Eof,]
+        [
+            T::And,
+            T::Eq,
+            T::Leq,
+            T::Underscore,
+            T::Neq,
+            T::Or,
+            T::Exponent,
+            T::Eof,
+        ]
     );
 }
 
@@ -157,7 +166,7 @@ fn function() {
             T::IntLit(7),
             T::FSlash,
             T::FloatLit(27.3e-2),
-            T::UpArrow,
+            T::Xor,
             T::IntLit(4),
             T::Semicolon,
             // `chars` assignment
