@@ -1,5 +1,9 @@
+use crate::lexer::Token;
+use crate::parser::IDENT_DISCRIM;
+use crate::parser::ast::Field;
+
 use super::Parser;
-use super::ast::{Bop, Expr, Lit, Stmt, Unop};
+use super::ast::{Bop, Expr, Item, Lit, Stmt, Unop};
 
 fn parse_expr(input: &str) -> Expr {
     let mut parser = Parser::new(input);
@@ -9,6 +13,11 @@ fn parse_expr(input: &str) -> Expr {
 fn parse_stmt(input: &str) -> Stmt {
     let mut parser = Parser::new(input);
     parser.statement().unwrap()
+}
+
+fn parse_item(input: &str) -> Item {
+    let mut parser = Parser::new(input);
+    parser.item().unwrap()
 }
 
 #[test]
@@ -202,4 +211,32 @@ fn parse_statements() {
 
     let stmt = parse_stmt("1;");
     assert_eq!(stmt, Stmt::Expr(Lit::Int(1).into()));
+}
+
+#[test]
+fn parse_struct() {
+    let item = parse_item(
+        r#"
+        struct Foo {
+            x: String,
+            bar: Bar,
+        }
+    "#,
+    );
+    assert_eq!(
+        item,
+        Item::Struct {
+            name: "Foo".into(),
+            fields: vec![
+                Field {
+                    name: "x".into(),
+                    ty: "String".into()
+                },
+                Field {
+                    name: "bar".into(),
+                    ty: "Bar".into()
+                }
+            ]
+        }
+    )
 }

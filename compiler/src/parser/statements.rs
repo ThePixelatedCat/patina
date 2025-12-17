@@ -1,42 +1,22 @@
-use std::cell::LazyCell;
+use crate::{next_checked, parser::IDENT_DISCRIM};
 
-use super::{ParseError, Parser, Token, ast::Stmt};
+use super::{ParseError, ParseResult, Parser, Token, ast::Stmt};
 
 impl<I: Iterator<Item = Token>> Parser<I> {
-    pub fn statement(&mut self) -> Result<Stmt, ParseError> {
+    pub fn statement(&mut self) -> ParseResult<Stmt> {
         Ok(match self.peek() {
             Token::Let => {
-                let ident_discrim = LazyCell::new(|| Token::Ident(String::new()).ty());
-
                 self.next();
                 let mutable = self.at(Token::Mut.ty());
                 if mutable {
                     self.next();
                 }
 
-                let ident = match self.next() {
-                    Some(Token::Ident(ident)) => ident,
-                    Some(token) => {
-                        return Err(ParseError::MismatchedToken {
-                            expected: *ident_discrim,
-                            found: token.ty(),
-                        });
-                    }
-                    None => return Err(ParseError::MissingToken),
-                };
+                let ident = next_checked!(self, Token::Ident, *IDENT_DISCRIM);
 
                 let type_annotation = if self.at(Token::Colon.ty()) {
                     self.next();
-                    match self.next() {
-                        Some(Token::Ident(ty)) => Some(ty),
-                        Some(token) => {
-                            return Err(ParseError::MismatchedToken {
-                                expected: *ident_discrim,
-                                found: token.ty(),
-                            });
-                        }
-                        None => return Err(ParseError::MissingToken),
-                    }
+                    Some(next_checked!(self, Token::Ident, *IDENT_DISCRIM))
                 } else {
                     None
                 };

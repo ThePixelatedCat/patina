@@ -1,5 +1,5 @@
 use super::{
-    ParseError, Parser, Token,
+    ParseError, ParseResult, Parser, Token,
     ast::{Bop, Expr, Lit, Unop},
 };
 
@@ -34,11 +34,11 @@ impl InfixOperator for Bop {
 }
 
 impl<I: Iterator<Item = Token>> Parser<I> {
-    pub fn expression(&mut self) -> Result<Expr, ParseError> {
+    pub fn expression(&mut self) -> ParseResult<Expr> {
         self.parse_expression(0)
     }
 
-    pub fn parse_expression(&mut self, binding_power: u8) -> Result<Expr, ParseError> {
+    fn parse_expression(&mut self, binding_power: u8) -> ParseResult<Expr> {
         let mut lhs = match self.peek() {
             Token::LParen => {
                 self.next();
@@ -127,7 +127,12 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                     expr: Box::new(expr),
                 }
             }
-            token => panic!("Unknown start of expression: `{:?}`", token),
+            token => {
+                return Err(ParseError::UnexpectedToken(
+                    token.ty(),
+                    Some("start of expression".into()),
+                ));
+            }
         };
         loop {
             let token = self.peek();
@@ -150,7 +155,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 Token::RParen | Token::RBrace | Token::Comma | Token::Semicolon | Token::Else => {
                     break;
                 }
-                token => return Err(ParseError::UnexpectedToken(token.ty())),
+                token => return Err(ParseError::UnexpectedToken(token.ty(), None)),
             };
 
             let (left_binding_power, right_binding_power) = op.binding_power();

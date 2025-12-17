@@ -1,6 +1,7 @@
 mod ast;
 mod expressions;
-mod hierarchy;
+mod items;
+mod statements;
 #[cfg(test)]
 mod test;
 
@@ -8,9 +9,16 @@ use std::error::Error;
 use std::fmt::Display;
 use std::{iter::Peekable, mem::Discriminant};
 
+use lazy_static::lazy_static;
+
 use crate::lexer::{Lexer, Token};
 
 type TokenType = Discriminant<Token>;
+type ParseResult<T> = Result<T, ParseError>;
+
+lazy_static! {
+    static ref IDENT_DISCRIM: TokenType = Token::Ident("".into()).ty();
+}
 
 #[derive(Debug)]
 pub enum ParseError {
@@ -19,7 +27,7 @@ pub enum ParseError {
         expected: TokenType,
         found: TokenType,
     },
-    UnexpectedToken(TokenType),
+    UnexpectedToken(TokenType, Option<String>),
 }
 
 impl Display for ParseError {
@@ -29,7 +37,10 @@ impl Display for ParseError {
             ParseError::MismatchedToken { expected, found } => {
                 write!(f, "expected token {expected:?}, found token {found:?}")
             }
-            ParseError::UnexpectedToken(token) => write!(f, "unexpected token `{token:?}`"),
+            ParseError::UnexpectedToken(token, Some(desc)) => {
+                write!(f, "unexpected token `{token:?}` at {desc}")
+            }
+            ParseError::UnexpectedToken(token, None) => write!(f, "unexpected token `{token:?}`"),
         }
     }
 }
@@ -69,7 +80,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
     /// Move forward one token in the input and check
     /// that we pass the kind of token we expect.
-    pub(crate) fn consume(&mut self, expected: TokenType) -> Result<(), ParseError> {
+    pub(crate) fn consume(&mut self, expected: TokenType) -> ParseResult<()> {
         let token = self.next().ok_or(ParseError::MissingToken)?;
         if token.ty() != expected {
             Err(ParseError::MismatchedToken {
@@ -80,4 +91,20 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             Ok(())
         }
     }
+}
+
+#[macro_export]
+macro_rules! next_checked {
+    ($self:ident, $type:ident :: $expect:ident, $discrim:expr) => {
+        match $self.next() {
+            Some($type::$expect(inner)) => inner,
+            Some(token) => {
+                return Err(ParseError::MismatchedToken {
+                    expected: $discrim,
+                    found: token.ty(),
+                });
+            }
+            None => return Err(ParseError::MissingToken),
+        }
+    };
 }

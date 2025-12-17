@@ -80,14 +80,16 @@ fn maybe_multiple_char_tokens() {
 
 #[test]
 fn keywords() {
-    let mut lexer = Lexer::new("if mut let = match else fn");
+    let mut lexer = Lexer::new("if struct mut let enum = match else fn");
     let tokens: Vec<_> = lexer.tokenize();
     assert_tokens!(
         tokens,
         [
             T::If,
+            T::Struct,
             T::Mut,
             T::Let,
+            T::Enum,
             T::Eq,
             T::Match,
             T::Else,

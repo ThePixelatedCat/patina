@@ -44,6 +44,8 @@ pub enum Token {
     Let,
     Mut,
     Fn,
+    Struct,
+    Enum,
     If,
     Else,
     Match,

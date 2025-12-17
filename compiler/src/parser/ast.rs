@@ -92,17 +92,38 @@ pub enum Unop {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Item {
-    FunDef {
+    Function {
         name: String,
         params: Vec<Arg>,
         return_type: Option<String>,
         body: Expr,
     },
+    Struct {
+        name: String,
+        fields: Vec<Field>,
+    },
+    Enum {
+        name: String,
+        variants: Vec<Variant>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Arg {
-    mutable: bool,
-    name: String,
-    type_annotation: Option<String>,
+    pub mutable: bool,
+    pub name: String,
+    pub type_annotation: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Field {
+    pub name: String,
+    pub ty: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Variant {
+    Unit,
+    Tuple(Vec<String>),
+    Struct(Vec<Field>),
 }
