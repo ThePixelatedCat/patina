@@ -2,16 +2,8 @@ pub struct Ast {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
-    Let {
-        mutable: bool,
-        ident: String,
-        type_annotation: Option<String>,
-        value: Expr,
-    },
-    Assign {
-        ident: String,
-        value: Expr,
-    },
+    Let { binding: Binding, value: Expr },
+    Assign { ident: String, value: Expr },
     Expr(Expr),
 }
 
@@ -94,7 +86,7 @@ pub enum Unop {
 pub enum Item {
     Function {
         name: String,
-        params: Vec<Arg>,
+        params: Vec<Binding>,
         return_type: Option<String>,
         body: Expr,
     },
@@ -109,7 +101,7 @@ pub enum Item {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Arg {
+pub struct Binding {
     pub mutable: bool,
     pub name: String,
     pub type_annotation: Option<String>,
@@ -123,7 +115,7 @@ pub struct Field {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Variant {
-    Unit,
-    Tuple(Vec<String>),
-    Struct(Vec<Field>),
+    Unit(String),
+    Tuple(String, Vec<String>),
+    Struct(String, Vec<Field>),
 }

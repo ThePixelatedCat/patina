@@ -43,7 +43,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             Token::LParen => {
                 self.next();
                 let expr = self.expression()?;
-                self.consume(Token::RParen.ty())?;
+                self.consume(&Token::RParen)?;
                 expr
             }
             Token::IntLit(_)
@@ -69,18 +69,16 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 };
                 let ident = Expr::Ident(ident);
 
-                if self.at(Token::LParen.ty()) {
-                    self.next();
-
+                if self.consume_at(&Token::LParen) {
                     let mut args = Vec::new();
-                    while !self.at(Token::RParen.ty()) {
+                    while !self.at(&Token::RParen) {
                         args.push(self.expression()?);
 
-                        if self.at(Token::Comma.ty()) {
-                            self.next();
+                        if !self.consume_at(&Token::Comma) {
+                            break;
                         }
                     }
-                    self.consume(Token::RParen.ty())?;
+                    self.next();
 
                     Expr::FnCall {
                         fun: Box::new(ident),
@@ -92,14 +90,13 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             }
             Token::If => {
                 self.next();
-                self.consume(Token::LParen.ty())?;
+                self.consume(&Token::LParen)?;
                 let cond = self.expression()?;
-                self.consume(Token::RParen.ty())?;
+                self.consume(&Token::RParen)?;
 
                 let th = self.expression()?;
 
-                let el = if self.at(Token::Else.ty()) {
-                    self.next();
+                let el = if self.consume_at(&Token::Else) {
                     Some(Box::new(self.expression()?))
                 } else {
                     None
@@ -129,7 +126,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             }
             token => {
                 return Err(ParseError::UnexpectedToken(
-                    token.ty(),
+                    token.to_string(),
                     Some("start of expression".into()),
                 ));
             }
@@ -155,7 +152,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 Token::RParen | Token::RBrace | Token::Comma | Token::Semicolon | Token::Else => {
                     break;
                 }
-                token => return Err(ParseError::UnexpectedToken(token.ty(), None)),
+                token => return Err(ParseError::UnexpectedToken(token.to_string(), None)),
             };
 
             let (left_binding_power, right_binding_power) = op.binding_power();

@@ -39,7 +39,7 @@ lazy_static! {
     static ref IDENTIFIER_REGEX: Regex = Regex::new(r#"^[A-Za-z_]([A-Za-z_]|\d)*"#).unwrap();
 }
 
-pub(super) const RULES: [Rule; 45] = {
+pub(super) const RULES: [Rule; 46] = {
     use Token as T;
     [
         |input| {
@@ -102,6 +102,7 @@ pub(super) const RULES: [Rule; 45] = {
         |input| match_single_char(input, ':').map(|len| (T::Colon, len)),
         |input| match_single_char(input, ';').map(|len| (T::Semicolon, len)),
         |input| match_single_char(input, '_').map(|len| (T::Underscore, len)),
+        |input| match_two_chars(input, '-', '>').map(|len| (T::Arrow, len)),
         |input| match_two_chars(input, '=', '=').map(|len| (T::Eqq, len)),
         |input| match_two_chars(input, '!', '=').map(|len| (T::Neq, len)),
         |input| match_two_chars(input, '*', '*').map(|len| (T::Exponent, len)),

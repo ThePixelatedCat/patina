@@ -1,33 +1,17 @@
 mod ast;
 mod expressions;
-mod items;
-mod statements;
+mod hierarchy;
 #[cfg(test)]
 mod test;
 
-use std::error::Error;
-use std::fmt::Display;
-use std::{iter::Peekable, mem::Discriminant};
-
-use lazy_static::lazy_static;
-
 use crate::lexer::{Lexer, Token};
-
-type TokenType = Discriminant<Token>;
-type ParseResult<T> = Result<T, ParseError>;
-
-lazy_static! {
-    static ref IDENT_DISCRIM: TokenType = Token::Ident("".into()).ty();
-}
+use std::{error::Error, fmt::Display, iter::Peekable, mem};
 
 #[derive(Debug)]
 pub enum ParseError {
     MissingToken,
-    MismatchedToken {
-        expected: TokenType,
-        found: TokenType,
-    },
-    UnexpectedToken(TokenType, Option<String>),
+    MismatchedToken { expected: String, found: String },
+    UnexpectedToken(String, Option<String>),
 }
 
 impl Display for ParseError {
@@ -35,10 +19,10 @@ impl Display for ParseError {
         match self {
             ParseError::MissingToken => write!(f, "expected another token"),
             ParseError::MismatchedToken { expected, found } => {
-                write!(f, "expected token {expected:?}, found token {found:?}")
+                write!(f, "expected token {expected}, found token {found}")
             }
             ParseError::UnexpectedToken(token, Some(desc)) => {
-                write!(f, "unexpected token `{token:?}` at {desc}")
+                write!(f, "unexpected token `{token}` at {desc}")
             }
             ParseError::UnexpectedToken(token, None) => write!(f, "unexpected token `{token:?}`"),
         }
@@ -46,6 +30,8 @@ impl Display for ParseError {
 }
 
 impl Error for ParseError {}
+
+type ParseResult<T> = Result<T, ParseError>;
 
 pub struct Parser<I>
 where
@@ -69,8 +55,16 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     }
 
     /// Check if the next token is the same variant as another token.
-    pub(crate) fn at(&mut self, other: TokenType) -> bool {
-        self.peek().ty() == other
+    pub(crate) fn at(&mut self, token: &Token) -> bool {
+        mem::discriminant(self.peek()) == mem::discriminant(token)
+    }
+
+    pub(crate) fn consume_at(&mut self, token: &Token) -> bool {
+        let at = self.at(token);
+        if at {
+            self.next();
+        }
+        at
     }
 
     /// Get the next token.
@@ -80,31 +74,26 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
     /// Move forward one token in the input and check
     /// that we pass the kind of token we expect.
-    pub(crate) fn consume(&mut self, expected: TokenType) -> ParseResult<()> {
+    pub(crate) fn consume(&mut self, expected: &Token) -> ParseResult<()> {
         let token = self.next().ok_or(ParseError::MissingToken)?;
-        if token.ty() != expected {
-            Err(ParseError::MismatchedToken {
-                expected,
-                found: token.ty(),
-            })
-        } else {
+        if mem::discriminant(&token) == mem::discriminant(expected) {
             Ok(())
+        } else {
+            Err(ParseError::MismatchedToken {
+                expected: expected.to_string(),
+                found: token.to_string(),
+            })
         }
     }
-}
 
-#[macro_export]
-macro_rules! next_checked {
-    ($self:ident, $type:ident :: $expect:ident, $discrim:expr) => {
-        match $self.next() {
-            Some($type::$expect(inner)) => inner,
-            Some(token) => {
-                return Err(ParseError::MismatchedToken {
-                    expected: $discrim,
-                    found: token.ty(),
-                });
-            }
-            None => return Err(ParseError::MissingToken),
+    pub(crate) fn consume_ident(&mut self) -> ParseResult<String> {
+        match self.next() {
+            Some(Token::Ident(ident)) => Ok(ident),
+            Some(token) => Err(ParseError::MismatchedToken {
+                expected: Token::Ident(String::new()).to_string(),
+                found: token.to_string(),
+            }),
+            None => Err(ParseError::MissingToken),
         }
-    };
+    }
 }

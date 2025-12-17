@@ -61,7 +61,7 @@ fn single_char_tokens_with_whitespace() {
 
 #[test]
 fn maybe_multiple_char_tokens() {
-    let mut lexer = Lexer::new("&&=<=_!=||**");
+    let mut lexer = Lexer::new("&&=<=_!=||**->");
     let tokens = lexer.tokenize();
     assert_tokens!(
         tokens,
@@ -73,6 +73,7 @@ fn maybe_multiple_char_tokens() {
             T::Neq,
             T::Or,
             T::Exponent,
+            T::Arrow,
             T::Eof,
         ]
     );

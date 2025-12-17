@@ -1,4 +1,4 @@
-use std::mem::{self, Discriminant};
+use std::fmt::Display;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Token {
@@ -31,6 +31,7 @@ pub enum Token {
     Colon,
     Semicolon,
     Underscore,
+    Arrow,
     // Operators
     Exponent,
     And,
@@ -57,8 +58,61 @@ pub enum Token {
     Eof,
 }
 
-impl Token {
-    pub const fn ty(&self) -> Discriminant<Self> {
-        mem::discriminant(self)
+impl Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Token::IntLit(_) => "int literal",
+                Token::FloatLit(_) => "float literal",
+                Token::StringLit(_) => "string literal",
+                Token::CharLit(_) => "char literal",
+                Token::LParen => "(",
+                Token::RParen => ")",
+                Token::LBrace => "{",
+                Token::RBrace => "}",
+                Token::LBracket => "[",
+                Token::RBracket => "]",
+                Token::Eq => "=",
+                Token::Ampersand => "&",
+                Token::Bar => "|",
+                Token::Bang => "!",
+                Token::LAngle => "<",
+                Token::RAngle => ">",
+                Token::Plus => "+",
+                Token::Minus => "-",
+                Token::Times => "*",
+                Token::FSlash => "/",
+                Token::BSlash => "\\",
+                Token::Dot => ".",
+                Token::Comma => ",",
+                Token::Colon => ":",
+                Token::Semicolon => ";",
+                Token::Underscore => "_",
+                Token::Arrow => "->",
+                Token::Exponent => "**",
+                Token::And => "&&",
+                Token::Or => "||",
+                Token::Xor => "^",
+                Token::Eqq => "==",
+                Token::Neq => "!=",
+                Token::Leq => "<=",
+                Token::Geq => ">=",
+                Token::Let => "let",
+                Token::Mut => "mut",
+                Token::Fn => "fn",
+                Token::Struct => "struct",
+                Token::Enum => "enum",
+                Token::If => "if",
+                Token::Else => "else",
+                Token::Match => "match",
+                Token::True => "true",
+                Token::False => "false",
+                Token::Ident(_) => "identifier",
+                Token::Error { start, end } => return write!(f, "ERROR start:{start} end:{end}"),
+                Token::Eof => "eof",
+            }
+        )
     }
 }

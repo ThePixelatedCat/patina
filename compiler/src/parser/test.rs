@@ -1,9 +1,5 @@
-use crate::lexer::Token;
-use crate::parser::IDENT_DISCRIM;
-use crate::parser::ast::Field;
-
 use super::Parser;
-use super::ast::{Bop, Expr, Item, Lit, Stmt, Unop};
+use super::ast::{Binding, Bop, Expr, Field, Item, Lit, Stmt, Unop, Variant};
 
 fn parse_expr(input: &str) -> Expr {
     let mut parser = Parser::new(input);
@@ -165,9 +161,11 @@ fn parse_statements() {
     assert_eq!(
         stmt,
         Stmt::Let {
-            mutable: false,
-            ident: "x".into(),
-            type_annotation: None,
+            binding: Binding {
+                mutable: false,
+                name: "x".into(),
+                type_annotation: None
+            },
             value: Expr::BinaryOp {
                 op: Bop::Add,
                 lhs: Lit::Int(7).into(),
@@ -184,9 +182,11 @@ fn parse_statements() {
     assert_eq!(
         stmt,
         Stmt::Let {
-            mutable: true,
-            ident: "y".into(),
-            type_annotation: Some("Int".into()),
+            binding: Binding {
+                mutable: true,
+                name: "y".into(),
+                type_annotation: Some("Int".into())
+            },
             value: Lit::Int(7).into()
         }
     );
@@ -219,7 +219,7 @@ fn parse_struct() {
         r#"
         struct Foo {
             x: String,
-            bar: Bar,
+            bar: Bar
         }
     "#,
     );
@@ -237,6 +237,75 @@ fn parse_struct() {
                     ty: "Bar".into()
                 }
             ]
+        }
+    )
+}
+
+#[test]
+fn parse_enum() {
+    let item = parse_item(
+        r#"
+        enum Foo {
+            X,
+            Y(Bar),
+            Z { baz:Baz, fizz:Buzz }
+        }
+    "#,
+    );
+    assert_eq!(
+        item,
+        Item::Enum {
+            name: "Foo".into(),
+            variants: vec![
+                Variant::Unit("X".into()),
+                Variant::Tuple("Y".into(), vec!["Bar".into()]),
+                Variant::Struct(
+                    "Z".into(),
+                    vec![
+                        Field {
+                            name: "baz".into(),
+                            ty: "Baz".into()
+                        },
+                        Field {
+                            name: "fizz".into(),
+                            ty: "Buzz".into()
+                        }
+                    ]
+                ),
+            ]
+        }
+    )
+}
+
+#[test]
+fn parse_function() {
+    let item = parse_item(
+        r#"
+        fn foo(mut a, b: Int) -> a + b
+    "#,
+    );
+    assert_eq!(
+        item,
+        Item::Function {
+            name: "foo".into(),
+            params: vec![
+                Binding {
+                    mutable: true,
+                    name: "a".into(),
+                    type_annotation: None
+                },
+                Binding {
+                    mutable: false,
+                    name: "b".into(),
+                    type_annotation: Some("Int".into())
+                }
+            ],
+            return_type: None,
+            body: Expr::BinaryOp {
+                op: Bop::Add,
+                lhs: Expr::Ident("a".into()).into(),
+                rhs: Expr::Ident("b".into()).into()
+            }
         }
     )
 }
