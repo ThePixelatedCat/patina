@@ -1,15 +1,15 @@
 use super::Parser;
-use super::ast::{Ast, Binding, Bop, Expr, Field, Item, Lit, Stmt, Type, Unop, Variant};
+use super::ast::{Ast, Binding, Bop, Expr, Field, Item, Lit, Type, Unop, Variant};
 
 fn parse_expr(input: &str) -> Expr {
     let mut parser = Parser::new(input);
     parser.expression().unwrap()
 }
 
-fn parse_stmt(input: &str) -> Stmt {
-    let mut parser = Parser::new(input);
-    parser.statement().unwrap()
-}
+// fn parse_stmt(input: &str) -> Stmt {
+//     let mut parser = Parser::new(input);
+//     parser.statement().unwrap()
+// }
 
 fn parse_item(input: &str) -> Item {
     let mut parser = Parser::new(input);
@@ -162,10 +162,10 @@ fn parse_binary_expressions() {
 
 #[test]
 fn parse_statements() {
-    let stmt = parse_stmt("let x = 7 + sin(3.);");
+    let stmt = parse_expr("let x = 7 + sin(3.);");
     assert_eq!(
         stmt,
-        Stmt::Let {
+        Expr::Let {
             binding: Binding {
                 mutable: false,
                 name: "x".into(),
@@ -179,14 +179,14 @@ fn parse_statements() {
                     args: vec![Lit::Float(3.0).into()]
                 }
                 .into()
-            }
+            }.into()
         }
     );
 
-    let stmt = parse_stmt("let mut y: Int = 7;");
+    let stmt = parse_expr("let mut y: Int = 7");
     assert_eq!(
         stmt,
-        Stmt::Let {
+        Expr::Let {
             binding: Binding {
                 mutable: true,
                 name: "y".into(),
@@ -199,10 +199,10 @@ fn parse_statements() {
         }
     );
 
-    let stmt = parse_stmt("y = 3 + 7 * 0.5;");
+    let stmt = parse_expr("y = 3 + 7 * 0.5");
     assert_eq!(
         stmt,
-        Stmt::Assign {
+        Expr::Assign {
             ident: "y".into(),
             value: Expr::BinaryOp {
                 op: Bop::Add,
@@ -213,12 +213,9 @@ fn parse_statements() {
                     rhs: Lit::Float(0.5).into()
                 }
                 .into()
-            }
+            }.into()
         }
     );
-
-    let stmt = parse_stmt("1;");
-    assert_eq!(stmt, Stmt::Expr(Lit::Int(1).into()));
 }
 
 #[test]

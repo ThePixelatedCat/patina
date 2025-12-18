@@ -1,6 +1,7 @@
 mod ast;
 mod expressions;
-mod hierarchy;
+mod items;
+mod helpers;
 #[cfg(test)]
 mod test;
 
@@ -83,17 +84,6 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 expected: expected.to_string(),
                 found: token.to_string(),
             })
-        }
-    }
-
-    pub(crate) fn consume_ident(&mut self) -> ParseResult<String> {
-        match self.next() {
-            Some(Token::Ident(ident)) => Ok(ident),
-            Some(token) => Err(ParseError::MismatchedToken {
-                expected: Token::Ident(String::new()).to_string(),
-                found: token.to_string(),
-            }),
-            None => Err(ParseError::MissingToken),
         }
     }
 }

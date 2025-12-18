@@ -67,7 +67,6 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 let Some(Token::Ident(ident)) = self.next() else {
                     unreachable!()
                 };
-                let ident = Expr::Ident(ident);
 
                 if self.consume_at(&Token::LParen) {
                     let mut args = Vec::new();
@@ -81,11 +80,16 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                     self.next();
 
                     Expr::FnCall {
-                        fun: Box::new(ident),
+                        fun: Box::new(Expr::Ident(ident)),
                         args,
                     }
+                } else if self.consume_at(&Token::Eq) {
+                    Expr::Assign { 
+                        ident, 
+                        value: self.expression()?.into() 
+                    }
                 } else {
-                    ident
+                    Expr::Ident(ident)
                 }
             }
             Token::If => {
@@ -123,6 +127,17 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                     op,
                     expr: Box::new(expr),
                 }
+            }
+            Token::Let => {
+                self.next();
+
+                let binding = self.binding()?;
+
+                self.consume(&Token::Eq)?;
+                let value = self.expression()?;
+                //self.consume(&Token::Semicolon)?;
+
+                Expr::Let { binding, value: Box::new(value) }
             }
             token => {
                 return Err(ParseError::UnexpectedToken(

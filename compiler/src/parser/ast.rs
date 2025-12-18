@@ -37,13 +37,6 @@ pub struct Field {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Stmt {
-    Let { binding: Binding, value: Expr },
-    Assign { ident: String, value: Expr },
-    Expr(Expr),
-}
-
-#[derive(Debug, Clone, PartialEq)]
 pub struct Binding {
     pub mutable: bool,
     pub name: String,
@@ -78,9 +71,11 @@ pub enum Expr {
         th: Box<Expr>,
         el: Option<Box<Expr>>,
     },
+    Let { binding: Binding, value: Box<Expr> },
+    Assign { ident: String, value: Box<Expr> },
     Block {
-        body: Vec<Stmt>,
-        trailing: Option<Box<Expr>>,
+        body: Vec<Expr>,
+        trailing: bool,
     },
 }
 

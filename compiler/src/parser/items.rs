@@ -1,6 +1,4 @@
-use crate::parser::ast::{Ast, Binding, Field, Item, Stmt, Type, Variant};
-
-use super::{ParseError, ParseResult, Parser, Token};
+use super::{ParseError, ParseResult, Parser, Token, ast::{Ast, Field, Item, Variant}};
 
 impl<I: Iterator<Item = Token>> Parser<I> {
     pub fn file(&mut self) -> ParseResult<Ast> {
@@ -16,7 +14,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             Token::Const => {
                 self.next();
 
-                let ident = self.consume_ident()?;
+                let ident = self.ident()?;
 
                 self.consume(&Token::Colon)?;
                 let ty = self.type_()?;
@@ -29,7 +27,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             Token::Fn => {
                 self.next();
 
-                let name = self.consume_ident()?;
+                let name = self.ident()?;
 
                 self.consume(&Token::LParen)?;
 
@@ -77,7 +75,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
                 let mut variants = Vec::new();
                 while !self.at(&Token::RBrace) {
-                    let variant_name = self.consume_ident()?;
+                    let variant_name = self.ident()?;
 
                     let variant = match self.peek() {
                         Token::LBrace => Variant::Struct(variant_name, self.fields()?),
@@ -123,41 +121,12 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         })
     }
 
-    pub fn statement(&mut self) -> ParseResult<Stmt> {
-        Ok(match self.peek() {
-            Token::Let => {
-                self.next();
-
-                let binding = self.binding()?;
-
-                self.consume(&Token::Eq)?;
-                let value = self.expression()?;
-                self.consume(&Token::Semicolon)?;
-
-                Stmt::Let { binding, value }
-            }
-            Token::Ident(_) => {
-                let Token::Ident(ident) = self.next().unwrap() else {
-                    unreachable!()
-                };
-                self.consume(&Token::Eq)?;
-                let value = self.expression()?;
-                self.consume(&Token::Semicolon)?;
-                Stmt::Assign { ident, value }
-            }
-            _ => {
-                let expr = self.expression()?;
-                self.consume(&Token::Semicolon).map(|_| Stmt::Expr(expr))?
-            }
-        })
-    }
-
     fn fields(&mut self) -> ParseResult<Vec<Field>> {
         self.consume(&Token::LBrace)?;
 
         let mut fields = Vec::new();
         while !self.at(&Token::RBrace) {
-            let name = self.consume_ident()?;
+            let name = self.ident()?;
 
             self.consume(&Token::Colon)?;
             let ty = self.type_()?;
@@ -170,41 +139,5 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         self.next();
 
         Ok(fields)
-    }
-
-    fn binding(&mut self) -> ParseResult<Binding> {
-        let mutable = self.consume_at(&Token::Mut);
-
-        let name = self.consume_ident()?;
-
-        let type_annotation = if self.consume_at(&Token::Colon) {
-            Some(self.type_()?)
-        } else {
-            None
-        };
-
-        Ok(Binding {
-            mutable,
-            name,
-            type_annotation,
-        })
-    }
-
-    fn type_(&mut self) -> ParseResult<Type> {
-        let name = self.consume_ident()?;
-
-        let mut generics = Vec::new();
-        if self.consume_at(&Token::LAngle) {
-            while !self.at(&Token::RAngle) {
-                generics.push(self.type_()?);
-
-                if !self.consume_at(&Token::Comma) {
-                    break;
-                }
-            }
-            self.next();
-        }
-
-        Ok(Type { name, generics })
     }
 }
