@@ -376,16 +376,15 @@ fn parse_function() {
     )
 }
 
-
-        // fn wow_we_did_it(x: String, bar: Bar<Baz<T>, U>): Foo -> {
-        //     let mut x = 7 + sin(y);
-        //     x = if (bar < 3) 
-        //         x + 1
-        //     else if (bar < 2) 
-        //         2 ** 3
-        //     else 
-        //         1;
-        // }
+// fn wow_we_did_it(x: String, bar: Bar<Baz<T>, U>): Foo -> {
+//     let mut x = 7 + sin(y);
+//     x = if (bar < 3)
+//         x + 1
+//     else if (bar < 2)
+//         2 ** 3
+//     else
+//         1;
+// }
 #[test]
 fn parse_file() {
     let items = parse_ast(
@@ -404,9 +403,9 @@ fn parse_file() {
     );
 
     assert_eq!(
-        items[0], 
-        Item::Function { 
-            name: "wow_we_did_it".into(), 
+        items[0],
+        Item::Function {
+            name: "wow_we_did_it".into(),
             params: vec![
                 Binding {
                     mutable: true,
@@ -416,37 +415,58 @@ fn parse_file() {
                 Binding {
                     mutable: false,
                     name: "bar".into(),
-                    type_annotation: Some(
-                        Type {
-                            name: "Bar".into(),
-                            generics: vec![
-                                Type {
-                                    name: "Baz".into(),
-                                    generics: vec![Type {
-                                        name: "T".into(),
-                                        generics: vec![],
-                                    }],
-                                },
-                                Type {
-                                    name: "U".into(),
+                    type_annotation: Some(Type {
+                        name: "Bar".into(),
+                        generics: vec![
+                            Type {
+                                name: "Baz".into(),
+                                generics: vec![Type {
+                                    name: "T".into(),
                                     generics: vec![],
-                                }
-                            ],
-                        }
-                    )
+                                }],
+                            },
+                            Type {
+                                name: "U".into(),
+                                generics: vec![],
+                            }
+                        ],
+                    })
                 }
-            ], 
-            return_type: Some(Type { name: "Foo".into(), generics: vec![] }), 
-            body: Expr::If { 
-                cond: Expr::BinaryOp { op: Bop::Lt, lhs: Expr::Ident("bar".into()).into(), rhs: Lit::Int(3).into() }.into(), 
-                th: Expr::BinaryOp { op: Bop::Add, lhs: Expr::Ident("x".into()).into(), rhs: Lit::Int(1).into() }.into(), 
+            ],
+            return_type: Some(Type {
+                name: "Foo".into(),
+                generics: vec![]
+            }),
+            body: Expr::If {
+                cond: Expr::BinaryOp {
+                    op: Bop::Lt,
+                    lhs: Expr::Ident("bar".into()).into(),
+                    rhs: Lit::Int(3).into()
+                }
+                .into(),
+                th: Expr::BinaryOp {
+                    op: Bop::Add,
+                    lhs: Expr::Ident("x".into()).into(),
+                    rhs: Lit::Int(1).into()
+                }
+                .into(),
                 el: Some(
-                    Expr::If { 
-                        cond: Expr::BinaryOp { op: Bop::Leq, lhs: Expr::Ident("bar".into()).into(), rhs: Lit::Int(2).into() }.into(), 
-                        th: Expr::FnCall { fun: Expr::Ident("fizz".into()).into(), args: vec![Lit::Int(3).into(), Lit::Float(5.1).into()] }.into(), 
-                        el: None 
-                    }.into()
-                ) 
+                    Expr::If {
+                        cond: Expr::BinaryOp {
+                            op: Bop::Leq,
+                            lhs: Expr::Ident("bar".into()).into(),
+                            rhs: Lit::Int(2).into()
+                        }
+                        .into(),
+                        th: Expr::FnCall {
+                            fun: Expr::Ident("fizz".into()).into(),
+                            args: vec![Lit::Int(3).into(), Lit::Float(5.1).into()]
+                        }
+                        .into(),
+                        el: None
+                    }
+                    .into()
+                )
             }
         }
     );

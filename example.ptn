@@ -5,6 +5,6 @@ fn sum_block(a: Int, b: Int): Int -> {
 }
 let sum_lambda = (a, b) -> a + b;
 
-let twelve = 12;
+const twelve: Int = 12;
 let inc = sum(1, _)
 let thirteen = inc(twelve)
