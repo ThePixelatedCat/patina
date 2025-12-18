@@ -84,9 +84,9 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                         args,
                     }
                 } else if self.consume_at(&Token::Eq) {
-                    Expr::Assign { 
-                        ident, 
-                        value: self.expression()?.into() 
+                    Expr::Assign {
+                        ident,
+                        value: self.expression()?.into(),
                     }
                 } else {
                     Expr::Ident(ident)
@@ -137,7 +137,27 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 let value = self.expression()?;
                 //self.consume(&Token::Semicolon)?;
 
-                Expr::Let { binding, value: Box::new(value) }
+                Expr::Let {
+                    binding,
+                    value: Box::new(value),
+                }
+            }
+            Token::LBrace => {
+                self.next();
+
+                let mut trailing = true;
+                let mut exprs = Vec::new();
+                while !self.at(&Token::RBrace) {
+                    exprs.push(self.expression()?);
+
+                    if self.consume_at(&Token::Semicolon) && self.at(&Token::RBrace) {
+                        trailing = false;
+                        break;
+                    }
+                }
+                self.next();
+
+                Expr::Block { exprs, trailing }
             }
             token => {
                 return Err(ParseError::UnexpectedToken(

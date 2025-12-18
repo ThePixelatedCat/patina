@@ -1,7 +1,7 @@
 mod ast;
 mod expressions;
-mod items;
 mod helpers;
+mod items;
 #[cfg(test)]
 mod test;
 

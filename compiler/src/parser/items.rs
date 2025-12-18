@@ -1,4 +1,7 @@
-use super::{ParseError, ParseResult, Parser, Token, ast::{Ast, Field, Item, Variant}};
+use super::{
+    ParseError, ParseResult, Parser, Token,
+    ast::{Ast, Field, Item, Variant},
+};
 
 impl<I: Iterator<Item = Token>> Parser<I> {
     pub fn file(&mut self) -> ParseResult<Ast> {

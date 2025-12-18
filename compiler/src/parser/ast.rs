@@ -71,10 +71,16 @@ pub enum Expr {
         th: Box<Expr>,
         el: Option<Box<Expr>>,
     },
-    Let { binding: Binding, value: Box<Expr> },
-    Assign { ident: String, value: Box<Expr> },
+    Let {
+        binding: Binding,
+        value: Box<Expr>,
+    },
+    Assign {
+        ident: String,
+        value: Box<Expr>,
+    },
     Block {
-        body: Vec<Expr>,
+        exprs: Vec<Expr>,
         trailing: bool,
     },
 }

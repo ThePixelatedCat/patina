@@ -1,5 +1,7 @@
 fn sum(a, b) -> a + b
 fn sum_annotated(a: Int, b: Int): Int -> a + b
+fn sum_block(a: Int, b: Int): Int -> {
+    a + b
+}
 
 const twelve: Int = 12
-const thirteen: Int = inc(twelve)

@@ -1,6 +1,9 @@
 use crate::parser::ParseError;
 
-use super::{ParseResult, Parser, Token, ast::{Binding, Type}};
+use super::{
+    ParseResult, Parser, Token,
+    ast::{Binding, Type},
+};
 
 impl<I: Iterator<Item = Token>> Parser<I> {
     pub fn binding(&mut self) -> ParseResult<Binding> {

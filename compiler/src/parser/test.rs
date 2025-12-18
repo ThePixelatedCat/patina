@@ -6,11 +6,6 @@ fn parse_expr(input: &str) -> Expr {
     parser.expression().unwrap()
 }
 
-// fn parse_stmt(input: &str) -> Stmt {
-//     let mut parser = Parser::new(input);
-//     parser.statement().unwrap()
-// }
-
 fn parse_item(input: &str) -> Item {
     let mut parser = Parser::new(input);
     parser.item().unwrap()
@@ -22,7 +17,7 @@ fn parse_ast(input: &str) -> Ast {
 }
 
 #[test]
-fn parse_expression() {
+fn parse_lit_expressions() {
     let expr = parse_expr("42");
     assert_eq!(expr, Lit::Int(42).into());
 
@@ -34,16 +29,10 @@ fn parse_expression() {
 
     let expr = parse_expr("foo");
     assert_eq!(expr, Expr::Ident("foo".into()));
+}
 
-    let expr = parse_expr("bar (  x, 2)");
-    assert_eq!(
-        expr,
-        Expr::FnCall {
-            fun: Expr::Ident("bar".into()).into(),
-            args: vec![Expr::Ident("x".into()), Lit::Int(2).into(),],
-        }
-    );
-
+#[test]
+fn parse_unop_expressions() {
     let expr = parse_expr("!  is_visible");
     assert_eq!(
         expr,
@@ -61,34 +50,10 @@ fn parse_expression() {
             expr: Lit::Int(-13).into(),
         }
     );
-
-    let expr = parse_expr("if (0.5) foo()");
-    assert_eq!(
-        expr,
-        Expr::If {
-            cond: Lit::Float(0.5).into(),
-            th: Expr::FnCall {
-                fun: Expr::Ident("foo".into()).into(),
-                args: Vec::new()
-            }
-            .into(),
-            el: None
-        }
-    );
-
-    let expr = parse_expr("if (0.5) foo else bar");
-    assert_eq!(
-        expr,
-        Expr::If {
-            cond: Lit::Float(0.5).into(),
-            th: Expr::Ident("foo".into()).into(),
-            el: Some(Expr::Ident("bar".into()).into())
-        }
-    );
 }
 
 #[test]
-fn parse_binary_expressions() {
+fn parse_binop_expressions() {
     let expr = parse_expr("4 + 2 * 3");
     assert_eq!(
         expr,
@@ -161,10 +126,46 @@ fn parse_binary_expressions() {
 }
 
 #[test]
-fn parse_statements() {
-    let stmt = parse_expr("let x = 7 + sin(3.);");
+fn parse_compound_expressions() {
+    let expr = parse_expr("bar (  x, 2)");
     assert_eq!(
-        stmt,
+        expr,
+        Expr::FnCall {
+            fun: Expr::Ident("bar".into()).into(),
+            args: vec![Expr::Ident("x".into()), Lit::Int(2).into(),],
+        }
+    );
+
+    let expr = parse_expr("if (0.5) foo()");
+    assert_eq!(
+        expr,
+        Expr::If {
+            cond: Lit::Float(0.5).into(),
+            th: Expr::FnCall {
+                fun: Expr::Ident("foo".into()).into(),
+                args: Vec::new()
+            }
+            .into(),
+            el: None
+        }
+    );
+
+    let expr = parse_expr("if (0.5) foo else bar");
+    assert_eq!(
+        expr,
+        Expr::If {
+            cond: Lit::Float(0.5).into(),
+            th: Expr::Ident("foo".into()).into(),
+            el: Some(Expr::Ident("bar".into()).into())
+        }
+    );
+}
+
+#[test]
+fn parse_var_expresssions() {
+    let expr = parse_expr("let x = 7 + sin(3.);");
+    assert_eq!(
+        expr,
         Expr::Let {
             binding: Binding {
                 mutable: false,
@@ -179,13 +180,14 @@ fn parse_statements() {
                     args: vec![Lit::Float(3.0).into()]
                 }
                 .into()
-            }.into()
+            }
+            .into()
         }
     );
 
-    let stmt = parse_expr("let mut y: Int = 7");
+    let expr = parse_expr("let mut y: Int = 7");
     assert_eq!(
-        stmt,
+        expr,
         Expr::Let {
             binding: Binding {
                 mutable: true,
@@ -199,9 +201,9 @@ fn parse_statements() {
         }
     );
 
-    let stmt = parse_expr("y = 3 + 7 * 0.5");
+    let expr = parse_expr("y = 3 + 7 * 0.5");
     assert_eq!(
-        stmt,
+        expr,
         Expr::Assign {
             ident: "y".into(),
             value: Expr::BinaryOp {
@@ -213,13 +215,83 @@ fn parse_statements() {
                     rhs: Lit::Float(0.5).into()
                 }
                 .into()
-            }.into()
+            }
+            .into()
         }
     );
 }
 
 #[test]
-fn parse_const() {
+fn parse_block_expressions() {
+    let expr = parse_expr(
+        "{
+        let mut y = 5;
+        3 + 1 - 2;
+        y = 1;
+        if (y < 3) {
+            let a = 5;
+            a
+        } else 32;
+    }",
+    );
+    assert_eq!(
+        expr,
+        Expr::Block {
+            exprs: vec![
+                Expr::Let {
+                    binding: Binding {
+                        mutable: true,
+                        name: "y".into(),
+                        type_annotation: None
+                    },
+                    value: Lit::Int(5).into()
+                },
+                Expr::BinaryOp {
+                    op: Bop::Sub,
+                    lhs: Expr::BinaryOp {
+                        op: Bop::Add,
+                        lhs: Lit::Int(3).into(),
+                        rhs: Lit::Int(1).into()
+                    }
+                    .into(),
+                    rhs: Lit::Int(2).into()
+                },
+                Expr::Assign {
+                    ident: "y".into(),
+                    value: Lit::Int(1).into()
+                },
+                Expr::If {
+                    cond: Expr::BinaryOp {
+                        op: Bop::Lt,
+                        lhs: Expr::Ident("y".into()).into(),
+                        rhs: Lit::Int(3).into()
+                    }
+                    .into(),
+                    th: Expr::Block {
+                        exprs: vec![
+                            Expr::Let {
+                                binding: Binding {
+                                    mutable: false,
+                                    name: "a".into(),
+                                    type_annotation: None
+                                },
+                                value: Lit::Int(5).into()
+                            },
+                            Expr::Ident("a".to_string())
+                        ],
+                        trailing: true
+                    }
+                    .into(),
+                    el: Some(Lit::Int(32).into())
+                }
+            ],
+            trailing: false
+        }
+    );
+}
+
+#[test]
+fn parse_const_items() {
     let item = parse_item(r#"const HELLO_WORLD: Str = "Hello, World!""#);
     assert_eq!(
         item,
@@ -235,7 +307,7 @@ fn parse_const() {
 }
 
 #[test]
-fn parse_struct() {
+fn parse_struct_items() {
     let item = parse_item(
         r#"
         struct Foo<T, U> {
@@ -287,7 +359,7 @@ fn parse_struct() {
 }
 
 #[test]
-fn parse_enum() {
+fn parse_enum_items() {
     let item = parse_item(
         r#"
         enum Foo {
@@ -338,7 +410,7 @@ fn parse_enum() {
 }
 
 #[test]
-fn parse_function() {
+fn parse_function_items() {
     let item = parse_item(
         r#"
         fn foo(mut a, b: Int) -> a + b
@@ -373,24 +445,18 @@ fn parse_function() {
     )
 }
 
-// fn wow_we_did_it(x: String, bar: Bar<Baz<T>, U>): Foo -> {
-//     let mut x = 7 + sin(y);
-//     x = if (bar < 3)
-//         x + 1
-//     else if (bar < 2)
-//         2 ** 3
-//     else
-//         1;
-// }
 #[test]
 fn parse_file() {
     let items = parse_ast(
         r#"
-        fn wow_we_did_it(mut x, bar: Bar<Baz<T>, U>): Foo -> 
-            if (bar < 3) 
-                x + 1
-            else if (bar <= 2) 
+        fn wow_we_did_it(mut x, bar: Bar<Baz<T>, U>): Foo -> {
+            let mut x: Float = -7.0 + sin(y);
+            x = if (bar < 3) {
+                let baz = 3;
+                x + 1;
+            } else if (bar <= 2)
                 fizz(3, 5.1)
+        }  
 
         struct Foo<T, U> {
             x: Str,
@@ -434,36 +500,78 @@ fn parse_file() {
                 name: "Foo".into(),
                 generics: vec![]
             }),
-            body: Expr::If {
-                cond: Expr::BinaryOp {
-                    op: Bop::Lt,
-                    lhs: Expr::Ident("bar".into()).into(),
-                    rhs: Lit::Int(3).into()
-                }
-                .into(),
-                th: Expr::BinaryOp {
-                    op: Bop::Add,
-                    lhs: Expr::Ident("x".into()).into(),
-                    rhs: Lit::Int(1).into()
-                }
-                .into(),
-                el: Some(
-                    Expr::If {
-                        cond: Expr::BinaryOp {
-                            op: Bop::Leq,
-                            lhs: Expr::Ident("bar".into()).into(),
-                            rhs: Lit::Int(2).into()
+            body: Expr::Block {
+                exprs: vec![
+                    Expr::Let {
+                        binding: Binding {
+                            mutable: true,
+                            name: "x".into(),
+                            type_annotation: Some(Type {
+                                name: "Float".into(),
+                                generics: vec![]
+                            })
+                        },
+                        value: Expr::BinaryOp {
+                            op: Bop::Add,
+                            lhs: Lit::Float(-7.0).into(),
+                            rhs: Expr::FnCall {
+                                fun: Expr::Ident("sin".into()).into(),
+                                args: vec![Expr::Ident("y".into())]
+                            }
+                            .into()
                         }
-                        .into(),
-                        th: Expr::FnCall {
-                            fun: Expr::Ident("fizz".into()).into(),
-                            args: vec![Lit::Int(3).into(), Lit::Float(5.1).into()]
+                        .into()
+                    },
+                    Expr::Assign {
+                        ident: "x".into(),
+                        value: Expr::If {
+                            cond: Expr::BinaryOp {
+                                op: Bop::Lt,
+                                lhs: Expr::Ident("bar".into()).into(),
+                                rhs: Lit::Int(3).into()
+                            }
+                            .into(),
+                            th: Expr::Block {
+                                exprs: vec![
+                                    Expr::Let {
+                                        binding: Binding {
+                                            mutable: false,
+                                            name: "baz".into(),
+                                            type_annotation: None
+                                        },
+                                        value: Lit::Int(3).into()
+                                    },
+                                    Expr::BinaryOp {
+                                        op: Bop::Add,
+                                        lhs: Expr::Ident("x".into()).into(),
+                                        rhs: Lit::Int(1).into()
+                                    }
+                                ],
+                                trailing: false
+                            }
+                            .into(),
+                            el: Some(
+                                Expr::If {
+                                    cond: Expr::BinaryOp {
+                                        op: Bop::Leq,
+                                        lhs: Expr::Ident("bar".into()).into(),
+                                        rhs: Lit::Int(2).into()
+                                    }
+                                    .into(),
+                                    th: Expr::FnCall {
+                                        fun: Expr::Ident("fizz".into()).into(),
+                                        args: vec![Lit::Int(3).into(), Lit::Float(5.1).into()]
+                                    }
+                                    .into(),
+                                    el: None
+                                }
+                                .into()
+                            )
                         }
-                        .into(),
-                        el: None
-                    }
-                    .into()
-                )
+                        .into()
+                    },
+                ],
+                trailing: true
             }
         }
     );
