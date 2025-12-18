@@ -44,6 +44,7 @@ pub enum Token {
     // Keywords
     Let,
     Mut,
+    Const,
     Fn,
     Struct,
     Enum,
@@ -101,6 +102,7 @@ impl Display for Token {
                 Token::Geq => ">=",
                 Token::Let => "let",
                 Token::Mut => "mut",
+                Token::Const => "const",
                 Token::Fn => "fn",
                 Token::Struct => "struct",
                 Token::Enum => "enum",
@@ -109,7 +111,7 @@ impl Display for Token {
                 Token::Match => "match",
                 Token::True => "true",
                 Token::False => "false",
-                Token::Ident(_) => "identifier",
+                Token::Ident(i) => return write!(f, "identifier {i}"),
                 Token::Error { start, end } => return write!(f, "ERROR start:{start} end:{end}"),
                 Token::Eof => "eof",
             }

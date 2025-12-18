@@ -1,5 +1,5 @@
 use super::Parser;
-use super::ast::{Binding, Bop, Expr, Field, Item, Lit, Stmt, Unop, Variant};
+use super::ast::{Ast, Binding, Bop, Expr, Field, Item, Lit, Stmt, Type, Unop, Variant};
 
 fn parse_expr(input: &str) -> Expr {
     let mut parser = Parser::new(input);
@@ -16,19 +16,24 @@ fn parse_item(input: &str) -> Item {
     parser.item().unwrap()
 }
 
+fn parse_ast(input: &str) -> Ast {
+    let mut parser = Parser::new(input);
+    parser.file().unwrap()
+}
+
 #[test]
 fn parse_expression() {
     let expr = parse_expr("42");
-    assert_eq!(expr, Expr::Literal(Lit::Int(42)));
+    assert_eq!(expr, Lit::Int(42).into());
 
     let expr = parse_expr("  2.7768");
-    assert_eq!(expr, Expr::Literal(Lit::Float(2.7768)));
+    assert_eq!(expr, Lit::Float(2.7768).into());
 
-    let expr = parse_expr(r#""I am a String!""#);
-    assert_eq!(expr, Expr::Literal(Lit::Str("I am a String!".into())));
+    let expr = parse_expr(r#""I am a Str!""#);
+    assert_eq!(expr, Lit::Str("I am a Str!".into()).into());
 
     let expr = parse_expr("foo");
-    assert_eq!(expr, Expr::Ident("foo".to_string()));
+    assert_eq!(expr, Expr::Ident("foo".into()));
 
     let expr = parse_expr("bar (  x, 2)");
     assert_eq!(
@@ -44,7 +49,7 @@ fn parse_expression() {
         expr,
         Expr::UnaryOp {
             op: Unop::Not,
-            expr: Expr::Ident("is_visible".to_string()).into(),
+            expr: Expr::Ident("is_visible".into()).into(),
         }
     );
 
@@ -185,7 +190,10 @@ fn parse_statements() {
             binding: Binding {
                 mutable: true,
                 name: "y".into(),
-                type_annotation: Some("Int".into())
+                type_annotation: Some(Type {
+                    name: "Int".into(),
+                    generics: vec![]
+                })
             },
             value: Lit::Int(7).into()
         }
@@ -214,27 +222,67 @@ fn parse_statements() {
 }
 
 #[test]
+fn parse_const() {
+    let item = parse_item(r#"const HELLO_WORLD: Str = "Hello, World!""#);
+    assert_eq!(
+        item,
+        Item::Const {
+            ident: "HELLO_WORLD".into(),
+            ty: Type {
+                name: "Str".into(),
+                generics: vec![]
+            },
+            value: Lit::Str("Hello, World!".into()).into()
+        }
+    );
+}
+
+#[test]
 fn parse_struct() {
     let item = parse_item(
         r#"
-        struct Foo {
-            x: String,
-            bar: Bar
+        struct Foo<T, U> {
+            x: Str,
+            bar: Bar<Baz<T>>
         }
     "#,
     );
     assert_eq!(
         item,
         Item::Struct {
-            name: "Foo".into(),
+            name: Type {
+                name: "Foo".into(),
+                generics: vec![
+                    Type {
+                        name: "T".into(),
+                        generics: vec![]
+                    },
+                    Type {
+                        name: "U".into(),
+                        generics: vec![]
+                    }
+                ]
+            },
             fields: vec![
                 Field {
                     name: "x".into(),
-                    ty: "String".into()
+                    ty: Type {
+                        name: "Str".into(),
+                        generics: vec![]
+                    }
                 },
                 Field {
                     name: "bar".into(),
-                    ty: "Bar".into()
+                    ty: Type {
+                        name: "Bar".into(),
+                        generics: vec![Type {
+                            name: "Baz".into(),
+                            generics: vec![Type {
+                                name: "T".into(),
+                                generics: vec![]
+                            }]
+                        }]
+                    }
                 }
             ]
         }
@@ -248,27 +296,42 @@ fn parse_enum() {
         enum Foo {
             X,
             Y(Bar),
-            Z { baz:Baz, fizz:Buzz }
+            Z { baz:Baz, fizz: Buzz }
         }
     "#,
     );
     assert_eq!(
         item,
         Item::Enum {
-            name: "Foo".into(),
+            name: Type {
+                name: "Foo".into(),
+                generics: vec![]
+            },
             variants: vec![
                 Variant::Unit("X".into()),
-                Variant::Tuple("Y".into(), vec!["Bar".into()]),
+                Variant::Tuple(
+                    "Y".into(),
+                    vec![Type {
+                        name: "Bar".into(),
+                        generics: vec![]
+                    }]
+                ),
                 Variant::Struct(
                     "Z".into(),
                     vec![
                         Field {
                             name: "baz".into(),
-                            ty: "Baz".into()
+                            ty: Type {
+                                name: "Baz".into(),
+                                generics: vec![]
+                            }
                         },
                         Field {
                             name: "fizz".into(),
-                            ty: "Buzz".into()
+                            ty: Type {
+                                name: "Buzz".into(),
+                                generics: vec![]
+                            }
                         }
                     ]
                 ),
@@ -297,7 +360,10 @@ fn parse_function() {
                 Binding {
                     mutable: false,
                     name: "b".into(),
-                    type_annotation: Some("Int".into())
+                    type_annotation: Some(Type {
+                        name: "Int".into(),
+                        generics: vec![]
+                    })
                 }
             ],
             return_type: None,
@@ -308,4 +374,127 @@ fn parse_function() {
             }
         }
     )
+}
+
+
+        // fn wow_we_did_it(x: String, bar: Bar<Baz<T>, U>): Foo -> {
+        //     let mut x = 7 + sin(y);
+        //     x = if (bar < 3) 
+        //         x + 1
+        //     else if (bar < 2) 
+        //         2 ** 3
+        //     else 
+        //         1;
+        // }
+#[test]
+fn parse_file() {
+    let items = parse_ast(
+        r#"
+        fn wow_we_did_it(mut x, bar: Bar<Baz<T>, U>): Foo -> 
+            if (bar < 3) 
+                x + 1
+            else if (bar <= 2) 
+                fizz(3, 5.1)
+
+        struct Foo<T, U> {
+            x: Str,
+            bar: Bar<Baz<T>, U>,
+        }
+    "#,
+    );
+
+    assert_eq!(
+        items[0], 
+        Item::Function { 
+            name: "wow_we_did_it".into(), 
+            params: vec![
+                Binding {
+                    mutable: true,
+                    name: "x".into(),
+                    type_annotation: None
+                },
+                Binding {
+                    mutable: false,
+                    name: "bar".into(),
+                    type_annotation: Some(
+                        Type {
+                            name: "Bar".into(),
+                            generics: vec![
+                                Type {
+                                    name: "Baz".into(),
+                                    generics: vec![Type {
+                                        name: "T".into(),
+                                        generics: vec![],
+                                    }],
+                                },
+                                Type {
+                                    name: "U".into(),
+                                    generics: vec![],
+                                }
+                            ],
+                        }
+                    )
+                }
+            ], 
+            return_type: Some(Type { name: "Foo".into(), generics: vec![] }), 
+            body: Expr::If { 
+                cond: Expr::BinaryOp { op: Bop::Lt, lhs: Expr::Ident("bar".into()).into(), rhs: Lit::Int(3).into() }.into(), 
+                th: Expr::BinaryOp { op: Bop::Add, lhs: Expr::Ident("x".into()).into(), rhs: Lit::Int(1).into() }.into(), 
+                el: Some(
+                    Expr::If { 
+                        cond: Expr::BinaryOp { op: Bop::Leq, lhs: Expr::Ident("bar".into()).into(), rhs: Lit::Int(2).into() }.into(), 
+                        th: Expr::FnCall { fun: Expr::Ident("fizz".into()).into(), args: vec![Lit::Int(3).into(), Lit::Float(5.1).into()] }.into(), 
+                        el: None 
+                    }.into()
+                ) 
+            }
+        }
+    );
+
+    assert_eq!(
+        items[1],
+        Item::Struct {
+            name: Type {
+                name: "Foo".into(),
+                generics: vec![
+                    Type {
+                        name: "T".into(),
+                        generics: vec![],
+                    },
+                    Type {
+                        name: "U".into(),
+                        generics: vec![],
+                    }
+                ],
+            },
+            fields: vec![
+                Field {
+                    name: "x".into(),
+                    ty: Type {
+                        name: "Str".into(),
+                        generics: vec![],
+                    },
+                },
+                Field {
+                    name: "bar".into(),
+                    ty: Type {
+                        name: "Bar".into(),
+                        generics: vec![
+                            Type {
+                                name: "Baz".into(),
+                                generics: vec![Type {
+                                    name: "T".into(),
+                                    generics: vec![],
+                                }],
+                            },
+                            Type {
+                                name: "U".into(),
+                                generics: vec![],
+                            }
+                        ],
+                    },
+                }
+            ]
+        }
+    );
 }

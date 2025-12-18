@@ -149,7 +149,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 Token::RAngle => Bop::Gt,
                 Token::Geq => Bop::Geq,
                 Token::Eof => break,
-                Token::RParen | Token::RBrace | Token::Comma | Token::Semicolon | Token::Else => {
+                Token::RParen | Token::RBrace | Token::Comma | Token::Semicolon | Token::Else | Token::Fn | Token::Struct | Token::Enum | Token::Const => {
                     break;
                 }
                 token => return Err(ParseError::UnexpectedToken(token.to_string(), None)),

@@ -1,10 +1,31 @@
-use crate::parser::ast::{Binding, Field, Item, Stmt, Variant};
+use crate::parser::ast::{Ast, Binding, Field, Item, Stmt, Type, Variant};
 
 use super::{ParseError, ParseResult, Parser, Token};
 
 impl<I: Iterator<Item = Token>> Parser<I> {
+    pub fn file(&mut self) -> ParseResult<Ast> {
+        let mut items = Vec::new();
+        while !self.at(&Token::Eof) {
+            items.push(self.item()?);
+        }
+        Ok(items)
+    }
+
     pub fn item(&mut self) -> ParseResult<Item> {
         Ok(match self.peek() {
+            Token::Const => {
+                self.next();
+
+                let ident = self.consume_ident()?;
+
+                self.consume(&Token::Colon)?;
+                let ty = self.type_()?;
+
+                self.consume(&Token::Eq)?;
+                let value = self.expression()?;
+
+                Item::Const { ident, ty, value }
+            }
             Token::Fn => {
                 self.next();
 
@@ -23,7 +44,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 self.next();
 
                 let return_type = if self.consume_at(&Token::Colon) {
-                    Some(self.consume_ident()?)
+                    Some(self.type_()?)
                 } else {
                     None
                 };
@@ -43,42 +64,39 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 self.next();
 
                 Item::Struct {
-                    name: self.consume_ident()?,
+                    name: self.type_()?,
                     fields: self.fields()?,
                 }
             }
             Token::Enum => {
                 self.next();
 
-                let name = self.consume_ident()?;
+                let name = self.type_()?;
 
                 self.consume(&Token::LBrace)?;
 
                 let mut variants = Vec::new();
                 while !self.at(&Token::RBrace) {
-                    let name = self.consume_ident()?;
+                    let variant_name = self.consume_ident()?;
 
                     let variant = match self.peek() {
-                        Token::LBrace => Variant::Struct(name, self.fields()?),
+                        Token::LBrace => Variant::Struct(variant_name, self.fields()?),
                         Token::LParen => {
                             self.next();
 
                             let mut types = Vec::new();
                             while !self.at(&Token::RParen) {
-                                let ty = self.consume_ident()?;
+                                types.push(self.type_()?);
 
-                                types.push(ty);
-                                if self.at(&Token::Comma) {
-                                    self.next();
-                                } else {
+                                if !self.consume_at(&Token::Comma) {
                                     break;
                                 }
                             }
                             self.next();
 
-                            Variant::Tuple(name, types)
+                            Variant::Tuple(variant_name, types)
                         }
-                        Token::Comma => Variant::Unit(name),
+                        Token::Comma => Variant::Unit(variant_name),
                         token => {
                             return Err(ParseError::MismatchedToken {
                                 expected: "one of `,` `(` `{`".into(),
@@ -142,8 +160,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             let name = self.consume_ident()?;
 
             self.consume(&Token::Colon)?;
-
-            let ty = self.consume_ident()?;
+            let ty = self.type_()?;
 
             fields.push(Field { name, ty });
             if !self.consume_at(&Token::Comma) {
@@ -160,9 +177,8 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
         let name = self.consume_ident()?;
 
-        let type_annotation = if self.at(&Token::Colon) {
-            self.next();
-            Some(self.consume_ident()?)
+        let type_annotation = if self.consume_at(&Token::Colon) {
+            Some(self.type_()?)
         } else {
             None
         };
@@ -172,5 +188,23 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             name,
             type_annotation,
         })
+    }
+
+    fn type_(&mut self) -> ParseResult<Type> {
+        let name = self.consume_ident()?;
+
+        let mut generics = Vec::new();
+        if self.consume_at(&Token::LAngle) {
+            while !self.at(&Token::RAngle) {
+                generics.push(self.type_()?);
+
+                if !self.consume_at(&Token::Comma) {
+                    break;
+                }
+            }
+            self.next();
+        }
+
+        Ok(Type { name, generics })
     }
 }

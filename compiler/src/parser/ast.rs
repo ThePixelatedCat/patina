@@ -1,10 +1,59 @@
-pub struct Ast {}
+pub type Ast = Vec<Item>;
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Item {
+    Const {
+        ident: String,
+        ty: Type,
+        value: Expr,
+    },
+    Function {
+        name: String,
+        params: Vec<Binding>,
+        return_type: Option<Type>,
+        body: Expr,
+    },
+    Struct {
+        name: Type,
+        fields: Vec<Field>,
+    },
+    Enum {
+        name: Type,
+        variants: Vec<Variant>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Variant {
+    Unit(String),
+    Tuple(String, Vec<Type>),
+    Struct(String, Vec<Field>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Field {
+    pub name: String,
+    pub ty: Type,
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
     Let { binding: Binding, value: Expr },
     Assign { ident: String, value: Expr },
     Expr(Expr),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Binding {
+    pub mutable: bool,
+    pub name: String,
+    pub type_annotation: Option<Type>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Type {
+    pub name: String,
+    pub generics: Vec<Type>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -80,42 +129,4 @@ pub enum Bop {
 pub enum Unop {
     Not,
     Neg,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Item {
-    Function {
-        name: String,
-        params: Vec<Binding>,
-        return_type: Option<String>,
-        body: Expr,
-    },
-    Struct {
-        name: String,
-        fields: Vec<Field>,
-    },
-    Enum {
-        name: String,
-        variants: Vec<Variant>,
-    },
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Binding {
-    pub mutable: bool,
-    pub name: String,
-    pub type_annotation: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Field {
-    pub name: String,
-    pub ty: String,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Variant {
-    Unit(String),
-    Tuple(String, Vec<String>),
-    Struct(String, Vec<Field>),
 }
