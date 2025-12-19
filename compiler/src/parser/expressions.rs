@@ -70,7 +70,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             | Token::CharLit(_)
             | Token::True
             | Token::False => {
-                let lit = match self.next().unwrap() {
+                Expr::Literal(match self.next().unwrap() {
                     Token::IntLit(int) => Lit::Int(int),
                     Token::FloatLit(float) => Lit::Float(float),
                     Token::StringLit(string) => Lit::Str(string),
@@ -78,9 +78,13 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                     Token::True => Lit::Bool(true),
                     Token::False => Lit::Bool(false),
                     _ => unreachable!(),
-                };
-                Expr::Literal(lit)
+                })
             }
+            Token::LBracket => Expr::Literal(Lit::Array(self.delimited_list(
+                Self::expression,
+                &Token::LBracket,
+                &Token::RBracket,
+            )?)),
             Token::Ident(_) => {
                 let Some(Token::Ident(ident)) = self.next() else {
                     unreachable!()
@@ -173,11 +177,6 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
                 Expr::Block { exprs, trailing }
             }
-            Token::LBracket => Expr::Literal(Lit::Array(self.delimited_list(
-                Self::expression,
-                &Token::LBracket,
-                &Token::RBracket,
-            )?)),
             token => {
                 return Err(ParseError::UnexpectedToken(
                     token.to_string(),
@@ -186,8 +185,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             }
         };
         loop {
-            let token = self.peek();
-            let op = match token {
+            let op = match self.peek() {
                 Token::Eq => Bop::Assign,
                 Token::Plus => Bop::Add,
                 Token::Minus => Bop::Sub,
@@ -205,14 +203,36 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 Token::Leq => Bop::Leq,
                 Token::RAngle => Bop::Gt,
                 Token::Geq => Bop::Geq,
+                Token::LBracket => {
+                    self.next();
+
+                    let index = Box::new(self.expression()?);
+                    self.consume(&Token::RBracket)?;
+
+                    lhs = Expr::Index { 
+                        arr: Box::new(lhs), 
+                        index
+                    };
+                    continue;
+                }
+                Token::Dot => {
+                    self.next();
+
+                    lhs = Expr::FieldAccess {
+                        base: Box::new(lhs),
+                        field: self.ident()?
+                    };
+                    continue;
+                }
                 Token::LParen => {
                     let args =
                         self.delimited_list(Self::expression, &Token::LParen, &Token::RParen)?;
 
-                    return Ok(Expr::FnCall {
+                    lhs = Expr::FnCall {
                         fun: Box::new(lhs),
                         args,
-                    });
+                    };
+                    continue;
                 }
                 Token::Eof => break,
                 Token::Else
@@ -225,7 +245,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 | Token::Const
                 | Token::Struct
                 | Token::Enum => break,
-                token => return Err(ParseError::UnexpectedToken(token.to_string(), None)),
+                token => return Err(ParseError::UnexpectedToken(token.to_string(), Some("end of expression".into()))),
             };
 
             let (left_binding_power, right_binding_power) = op.binding_power();

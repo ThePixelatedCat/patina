@@ -76,6 +76,14 @@ pub enum Expr {
         op: Unop,
         expr: Box<Expr>,
     },
+    Index {
+        arr: Box<Expr>,
+        index: Box<Expr>,
+    },
+    FieldAccess {
+        base: Box<Expr>,
+        field: String,
+    },
     If {
         cond: Box<Expr>,
         th: Box<Expr>,

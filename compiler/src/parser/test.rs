@@ -215,6 +215,34 @@ fn parse_compound_expressions() {
             args: vec![Lit::Int(1).into(), Lit::Int(2).into()]
         }
     );
+
+    // let expr = parse_expr("[1, 2, 3][1-1]");
+    // assert_eq!(
+    //     expr,
+    //     Expr::Index {
+    //         arr: Lit::Array(vec![
+    //             Lit::Int(1).into(),
+    //             Lit::Int(2).into(),
+    //             Lit::Int(3).into()
+    //         ])
+    //         .into(),
+    //         index: Expr::BinaryOp {
+    //             op: Bop::Sub,
+    //             lhs: Lit::Int(1).into(),
+    //             rhs: Lit::Int(1).into()
+    //         }
+    //         .into()
+    //     }
+    // );
+
+    let expr = parse_expr("self._0");
+    assert_eq!(
+        expr,
+        Expr::FieldAccess {
+            base: Expr::Ident("self".into()).into(),
+            field: "_0".into()
+        }
+    );
 }
 
 #[test]
@@ -497,7 +525,7 @@ fn parse_file() {
         fn wow_we_did_it(mut x, bar: Bar<Baz<T>, U>): fn(Int): Int -> {
             let mut x: (Float, T) = -7.0 + sin(y);
             x = if (bar < 3) {
-                let baz = 3;
+                let baz = bar.value + 2 * 4;
                 x + 1;
             } else if (bar <= 2)
                 fizz(3, 5.1)
@@ -598,7 +626,18 @@ fn parse_file() {
                                             name: "baz".into(),
                                             type_annotation: None
                                         },
-                                        value: Lit::Int(3).into()
+                                        value: Expr::BinaryOp { 
+                                            op: Bop::Add, 
+                                            lhs: Expr::FieldAccess { 
+                                                base: Expr::Ident("bar".into()).into(), 
+                                                field: "value".into() 
+                                            }.into(), 
+                                            rhs: Expr::BinaryOp { 
+                                                op: Bop::Mul, 
+                                                lhs: Lit::Int(2).into(), 
+                                                rhs: Lit::Int(4).into()
+                                            }.into() 
+                                        }.into()
                                     },
                                     Expr::BinaryOp {
                                         op: Bop::Add,
