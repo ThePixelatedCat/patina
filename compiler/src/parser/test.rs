@@ -70,7 +70,11 @@ fn parse_unop_expressions() {
         expr,
         Expr::UnaryOp {
             op: Unop::Neg,
-            expr: Lit::Int(-13).into(),
+            expr: Expr::UnaryOp {
+                op: Unop::Neg,
+                expr: Lit::Int(13).into(),
+            }
+            .into()
         }
     );
 }
@@ -216,24 +220,24 @@ fn parse_compound_expressions() {
         }
     );
 
-    // let expr = parse_expr("[1, 2, 3][1-1]");
-    // assert_eq!(
-    //     expr,
-    //     Expr::Index {
-    //         arr: Lit::Array(vec![
-    //             Lit::Int(1).into(),
-    //             Lit::Int(2).into(),
-    //             Lit::Int(3).into()
-    //         ])
-    //         .into(),
-    //         index: Expr::BinaryOp {
-    //             op: Bop::Sub,
-    //             lhs: Lit::Int(1).into(),
-    //             rhs: Lit::Int(1).into()
-    //         }
-    //         .into()
-    //     }
-    // );
+    let expr = parse_expr("[1, 2, 3][1-1]");
+    assert_eq!(
+        expr,
+        Expr::Index {
+            arr: Lit::Array(vec![
+                Lit::Int(1).into(),
+                Lit::Int(2).into(),
+                Lit::Int(3).into()
+            ])
+            .into(),
+            index: Expr::BinaryOp {
+                op: Bop::Sub,
+                lhs: Lit::Int(1).into(),
+                rhs: Lit::Int(1).into()
+            }
+            .into()
+        }
+    );
 
     let expr = parse_expr("self._0");
     assert_eq!(
@@ -599,7 +603,11 @@ fn parse_file() {
                         },
                         value: Expr::BinaryOp {
                             op: Bop::Add,
-                            lhs: Lit::Float(-7.0).into(),
+                            lhs: Expr::UnaryOp {
+                                op: Unop::Neg,
+                                expr: Lit::Float(7.0).into()
+                            }
+                            .into(),
                             rhs: Expr::FnCall {
                                 fun: Expr::Ident("sin".into()).into(),
                                 args: vec![Expr::Ident("y".into())]
@@ -626,18 +634,21 @@ fn parse_file() {
                                             name: "baz".into(),
                                             type_annotation: None
                                         },
-                                        value: Expr::BinaryOp { 
-                                            op: Bop::Add, 
-                                            lhs: Expr::FieldAccess { 
-                                                base: Expr::Ident("bar".into()).into(), 
-                                                field: "value".into() 
-                                            }.into(), 
-                                            rhs: Expr::BinaryOp { 
-                                                op: Bop::Mul, 
-                                                lhs: Lit::Int(2).into(), 
+                                        value: Expr::BinaryOp {
+                                            op: Bop::Add,
+                                            lhs: Expr::FieldAccess {
+                                                base: Expr::Ident("bar".into()).into(),
+                                                field: "value".into()
+                                            }
+                                            .into(),
+                                            rhs: Expr::BinaryOp {
+                                                op: Bop::Mul,
+                                                lhs: Lit::Int(2).into(),
                                                 rhs: Lit::Int(4).into()
-                                            }.into() 
-                                        }.into()
+                                            }
+                                            .into()
+                                        }
+                                        .into()
                                     },
                                     Expr::BinaryOp {
                                         op: Bop::Add,

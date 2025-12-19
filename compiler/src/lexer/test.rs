@@ -109,7 +109,7 @@ fn comment() {
 
 #[test]
 fn literals() {
-    let mut lexer = Lexer::new(r#"1 .5 0.211 -1. true "test"'\n'"#);
+    let mut lexer = Lexer::new(r#"1 .5 0.211 1. true "test"'\n'"#);
     let tokens: Vec<_> = lexer.tokenize();
     assert_tokens!(
         tokens,
@@ -117,7 +117,7 @@ fn literals() {
             T::IntLit(1),
             T::FloatLit(0.5),
             T::FloatLit(0.211),
-            T::FloatLit(-1.0),
+            T::FloatLit(1.0),
             T::True,
             T::StringLit("test".into()),
             T::CharLit('\n'),

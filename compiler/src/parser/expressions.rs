@@ -69,17 +69,15 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             | Token::StringLit(_)
             | Token::CharLit(_)
             | Token::True
-            | Token::False => {
-                Expr::Literal(match self.next().unwrap() {
-                    Token::IntLit(int) => Lit::Int(int),
-                    Token::FloatLit(float) => Lit::Float(float),
-                    Token::StringLit(string) => Lit::Str(string),
-                    Token::CharLit(char) => Lit::Char(char),
-                    Token::True => Lit::Bool(true),
-                    Token::False => Lit::Bool(false),
-                    _ => unreachable!(),
-                })
-            }
+            | Token::False => Expr::Literal(match self.next().unwrap() {
+                Token::IntLit(int) => Lit::Int(int),
+                Token::FloatLit(float) => Lit::Float(float),
+                Token::StringLit(string) => Lit::Str(string),
+                Token::CharLit(char) => Lit::Char(char),
+                Token::True => Lit::Bool(true),
+                Token::False => Lit::Bool(false),
+                _ => unreachable!(),
+            }),
             Token::LBracket => Expr::Literal(Lit::Array(self.delimited_list(
                 Self::expression,
                 &Token::LBracket,
@@ -209,8 +207,8 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                     let index = Box::new(self.expression()?);
                     self.consume(&Token::RBracket)?;
 
-                    lhs = Expr::Index { 
-                        arr: Box::new(lhs), 
+                    lhs = Expr::Index {
+                        arr: Box::new(lhs),
                         index
                     };
                     continue;
@@ -238,7 +236,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 Token::Else
                 | Token::RParen // Delimiters
                 | Token::RBrace
-                | Token::RBracket 
+                | Token::RBracket
                 | Token::Comma
                 | Token::Semicolon
                 | Token::Fn

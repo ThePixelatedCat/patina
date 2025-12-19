@@ -31,9 +31,9 @@ fn match_regex(input: &str, r: &Regex) -> Option<usize> {
 }
 
 lazy_static! {
-    static ref INT_REGEX: Regex = Regex::new(r#"^[\+-]?\d+"#).unwrap();
+    static ref INT_REGEX: Regex = Regex::new(r#"^\d+"#).unwrap();
     static ref FLOAT_REGEX: Regex =
-        Regex::new(r#"^[\+-]?((\d+\.(\d+)?)|(\.\d+))([Ee][\+-]?\d+)?"#).unwrap();
+        Regex::new(r#"^((\d+\.(\d+)?)|(\.\d+))([Ee][\+-]?\d+)?"#).unwrap();
     static ref STRING_REGEX: Regex = Regex::new(r#"^"((\\"|\\\\|\\n)|[^\\"])*""#).unwrap();
     static ref CHAR_REGEX: Regex = Regex::new(r#"^'((\\'|\\\\|\\n)|[^\\'])'"#).unwrap();
     static ref IDENTIFIER_REGEX: Regex = Regex::new(r#"^[A-Za-z_]([A-Za-z_]|\d)*"#).unwrap();
