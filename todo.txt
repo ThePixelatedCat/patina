@@ -1,3 +1,7 @@
 - Struct/Enum Literals
 - Indexing
 - Field Access
+
+Later?:
+- Partial Application
+- Composition
