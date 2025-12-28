@@ -1,16 +1,20 @@
-pub type Ast = Vec<Item>;
+use crate::span::{Spannable, Spanned};
 
+pub type Ast = Vec<ItemS>;
+
+pub type ItemS = Spanned<Item>;
+impl Spannable for Item {}
 #[derive(Debug, Clone, PartialEq)]
 pub enum Item {
     Const {
         ident: String,
-        ty: Type,
+        ty: TypeS,
         value: Expr,
     },
     Function {
         name: String,
         params: Vec<Binding>,
-        return_type: Option<Type>,
+        return_type: Option<TypeS>,
         body: Expr,
     },
     Struct {
@@ -28,23 +32,25 @@ pub enum Item {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Variant {
     Unit(String),
-    Tuple(String, Vec<Type>),
+    Tuple(String, Vec<TypeS>),
     Struct(String, Vec<Field>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Field {
     pub name: String,
-    pub ty: Type,
+    pub ty: TypeS,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Binding {
     pub mutable: bool,
     pub name: String,
-    pub type_annotation: Option<Type>,
+    pub type_annotation: Option<TypeS>,
 }
 
+pub type TypeS = Spanned<Type>;
+impl Spannable for Type {}
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
     Ident {
@@ -59,72 +65,57 @@ pub enum Type {
     },
 }
 
+pub type ExprS = Spanned<Expr>;
+impl Spannable for Expr {}
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
-    Literal(Lit),
     Ident(String),
-    FnCall {
-        fun: Box<Expr>,
-        args: Vec<Expr>,
-    },
-    BinaryOp {
-        op: Bop,
-        lhs: Box<Expr>,
-        rhs: Box<Expr>,
-    },
-    UnaryOp {
-        op: Unop,
-        expr: Box<Expr>,
-    },
-    Index {
-        arr: Box<Expr>,
-        index: Box<Expr>,
-    },
-    FieldAccess {
-        base: Box<Expr>,
-        field: String,
-    },
-    If {
-        cond: Box<Expr>,
-        th: Box<Expr>,
-        el: Option<Box<Expr>>,
-    },
-    Let {
-        binding: Binding,
-        value: Box<Expr>,
-    },
-    Lambda {
-        params: Vec<Binding>,
-        return_type: Option<Type>,
-        body: Box<Expr>,
-    },
-    Block {
-        exprs: Vec<Expr>,
-        trailing: bool,
-    },
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Lit {
     Int(i64),
     Float(f64),
     Str(String),
     Char(char),
     Bool(bool),
-    Array(Vec<Expr>),
-    Tuple(Vec<Expr>),
-}
-
-impl From<Lit> for Expr {
-    fn from(value: Lit) -> Self {
-        Expr::Literal(value)
-    }
-}
-
-impl From<Lit> for Box<Expr> {
-    fn from(value: Lit) -> Self {
-        Box::new(Expr::Literal(value))
-    }
+    Array(Vec<ExprS>),
+    Tuple(Vec<ExprS>),
+    FnCall {
+        fun: Box<ExprS>,
+        args: Vec<ExprS>,
+    },
+    BinaryOp {
+        op: Bop,
+        lhs: Box<ExprS>,
+        rhs: Box<ExprS>,
+    },
+    UnaryOp {
+        op: Unop,
+        expr: Box<ExprS>,
+    },
+    Index {
+        arr: Box<ExprS>,
+        index: Box<ExprS>,
+    },
+    FieldAccess {
+        base: Box<ExprS>,
+        field: String,
+    },
+    If {
+        cond: Box<ExprS>,
+        th: Box<ExprS>,
+        el: Option<Box<ExprS>>,
+    },
+    Let {
+        binding: Binding,
+        value: Box<ExprS>,
+    },
+    Lambda {
+        params: Vec<Binding>,
+        return_type: Option<TypeS>,
+        body: Box<ExprS>,
+    },
+    Block {
+        exprs: Vec<ExprS>,
+        trailing: bool,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

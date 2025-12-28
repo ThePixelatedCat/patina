@@ -5,20 +5,22 @@ mod items;
 #[cfg(test)]
 mod test;
 
-use crate::lexer::{Lexer, Token};
-use std::{error::Error, fmt::Display, iter::Peekable, mem};
+use crate::lexer::{Lexer, Token, TokenType};
+use std::{error::Error, fmt::Display, iter::Peekable};
 
 #[derive(Debug)]
 pub enum ParseError {
+    MismatchedToken {
+        expected: TokenType,
+        found: TokenType,
+    },
+    UnexpectedToken(TokenType, Option<String>),
     MissingToken,
-    MismatchedToken { expected: String, found: String },
-    UnexpectedToken(String, Option<String>),
 }
 
 impl Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ParseError::MissingToken => write!(f, "expected another token"),
             ParseError::MismatchedToken { expected, found } => {
                 write!(f, "expected token {expected}, found token {found}")
             }
@@ -26,6 +28,7 @@ impl Display for ParseError {
                 write!(f, "unexpected token `{token}` at {desc}")
             }
             ParseError::UnexpectedToken(token, None) => write!(f, "unexpected token `{token:?}`"),
+            ParseError::MissingToken => "expected another token".fmt(f),
         }
     }
 }
@@ -34,33 +37,38 @@ impl Error for ParseError {}
 
 type ParseResult<T> = Result<T, ParseError>;
 
-pub struct Parser<I>
+pub struct Parser<'input, I>
 where
     I: Iterator<Item = Token>,
 {
+    input: &'input str,
     tokens: Peekable<I>,
 }
 
-impl<'input> Parser<Lexer<'input>> {
+impl<'input> Parser<'input, Lexer<'input>> {
     pub fn new(input: &'input str) -> Parser<Lexer<'input>> {
         Parser {
+            input,
             tokens: Lexer::new(input).peekable(),
         }
     }
 }
 
-impl<I: Iterator<Item = Token>> Parser<I> {
+impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
     /// Look-ahead one token and see what kind of token it is.
-    pub(crate) fn peek(&mut self) -> &Token {
-        self.tokens.peek().unwrap_or(&Token::Eof)
+    pub(crate) fn peek(&mut self) -> TokenType {
+        self.tokens
+            .peek()
+            .map(|token| token.inner)
+            .unwrap_or(TokenType::Eof)
     }
 
     /// Check if the next token is the same variant as another token.
-    pub(crate) fn at(&mut self, token: &Token) -> bool {
-        mem::discriminant(self.peek()) == mem::discriminant(token)
+    pub(crate) fn at(&mut self, token: TokenType) -> bool {
+        self.peek() == token
     }
 
-    pub(crate) fn consume_at(&mut self, token: &Token) -> bool {
+    pub(crate) fn consume_at(&mut self, token: TokenType) -> bool {
         let at = self.at(token);
         if at {
             self.next();
@@ -75,14 +83,14 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
     /// Move forward one token in the input and check
     /// that we pass the kind of token we expect.
-    pub(crate) fn consume(&mut self, expected: &Token) -> ParseResult<()> {
-        let token = self.next().ok_or(ParseError::MissingToken)?;
-        if mem::discriminant(&token) == mem::discriminant(expected) {
-            Ok(())
+    pub(crate) fn consume(&mut self, expected: TokenType) -> ParseResult<Token> {
+        let next = self.next().ok_or(ParseError::MissingToken)?;
+        if next.inner == expected {
+            Ok(next)
         } else {
             Err(ParseError::MismatchedToken {
-                expected: expected.to_string(),
-                found: token.to_string(),
+                expected,
+                found: next.inner,
             })
         }
     }

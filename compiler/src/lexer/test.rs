@@ -1,12 +1,20 @@
-use super::{Lexer, token::Token as T};
+use crate::span::Spannable;
+
+use super::{Lexer, TokenType as T};
+
+macro_rules! count {
+    () => (0usize);
+    ( $x:tt $($xs:tt)* ) => (1usize + count!($($xs)*));
+}
 
 /// walks `$tokens` and compares them to the given kinds.
 macro_rules! assert_tokens {
     ($tokens:ident, [$($token:expr,)*]) => {
         {
+            assert_eq!($tokens.len(), count!($($token)*), "mismatched token counts");
             let mut iter = $tokens.iter();
             $(
-                let token = iter.next().expect("not enough tokens");
+                let token = iter.next().unwrap();
                 assert_eq!(*token, $token);
             )*
         }
@@ -20,13 +28,13 @@ fn single_char_tokens() {
     assert_tokens!(
         tokens,
         [
-            T::Plus,
-            T::Minus,
-            T::LParen,
-            T::Dot,
-            T::RParen,
-            T::Colon,
-            T::Eof,
+            T::Plus.spanned(0..1),
+            T::Minus.spanned(1..2),
+            T::LParen.spanned(2..3),
+            T::Dot.spanned(3..4),
+            T::RParen.spanned(4..5),
+            T::Colon.spanned(5..6),
+            T::Eof.spanned(6..6),
         ]
     );
 }
@@ -37,7 +45,12 @@ fn unknown_input() {
     let tokens = lexer.tokenize();
     assert_tokens!(
         tokens,
-        [T::LBrace, T::Error { start: 1, end: 8 }, T::Plus, T::Eof,]
+        [
+            T::LBrace.spanned(0..1),
+            T::Error.spanned(1..8),
+            T::Plus.spanned(8..9),
+            T::Eof.spanned(9..9),
+        ]
     );
 }
 
@@ -48,13 +61,13 @@ fn single_char_tokens_with_whitespace() {
     assert_tokens!(
         tokens,
         [
-            T::Plus,
-            T::Minus,
-            T::LParen,
-            T::Dot,
-            T::RParen,
-            T::Colon,
-            T::Eof,
+            T::Plus.spanned(3..4),
+            T::Minus.spanned(5..6),
+            T::LParen.spanned(8..9),
+            T::Dot.spanned(9..10),
+            T::RParen.spanned(10..11),
+            T::Colon.spanned(11..12),
+            T::Eof.spanned(13..13),
         ]
     );
 }
@@ -66,15 +79,15 @@ fn maybe_multiple_char_tokens() {
     assert_tokens!(
         tokens,
         [
-            T::And,
-            T::Eq,
-            T::Leq,
-            T::Underscore,
-            T::Neq,
-            T::Or,
-            T::Exponent,
-            T::Arrow,
-            T::Eof,
+            T::And.spanned(0..2),
+            T::Eq.spanned(2..3),
+            T::Leq.spanned(3..5),
+            T::Underscore.spanned(5..6),
+            T::Neq.spanned(6..8),
+            T::Or.spanned(8..10),
+            T::Exponent.spanned(10..12),
+            T::Arrow.spanned(12..14),
+            T::Eof.spanned(14..14),
         ]
     );
 }
@@ -86,16 +99,16 @@ fn keywords() {
     assert_tokens!(
         tokens,
         [
-            T::If,
-            T::Struct,
-            T::Mut,
-            T::Let,
-            T::Enum,
-            T::Eq,
-            T::Match,
-            T::Else,
-            T::Fn,
-            T::Eof,
+            T::If.spanned(0..2),
+            T::Struct.spanned(3..9),
+            T::Mut.spanned(10..13),
+            T::Let.spanned(14..17),
+            T::Enum.spanned(18..22),
+            T::Eq.spanned(23..24),
+            T::Match.spanned(25..30),
+            T::Else.spanned(31..35),
+            T::Fn.spanned(36..38),
+            T::Eof.spanned(38..38),
         ]
     );
 }
@@ -104,7 +117,14 @@ fn keywords() {
 fn comment() {
     let mut lexer = Lexer::new("//hello, world!\nif let");
     let tokens: Vec<_> = lexer.tokenize();
-    assert_tokens!(tokens, [T::If, T::Let,]);
+    assert_tokens!(
+        tokens,
+        [
+            T::If.spanned(16..18),
+            T::Let.spanned(19..22),
+            T::Eof.spanned(22..22),
+        ]
+    );
 }
 
 #[test]
@@ -114,14 +134,14 @@ fn literals() {
     assert_tokens!(
         tokens,
         [
-            T::IntLit(1),
-            T::FloatLit(0.5),
-            T::FloatLit(0.211),
-            T::FloatLit(1.0),
-            T::True,
-            T::StringLit("test".into()),
-            T::CharLit('\n'),
-            T::Eof,
+            T::IntLit.spanned(0..1),
+            T::FloatLit.spanned(2..4),
+            T::FloatLit.spanned(5..10),
+            T::FloatLit.spanned(11..13),
+            T::True.spanned(14..18),
+            T::StringLit.spanned(19..25),
+            T::CharLit.spanned(25..29),
+            T::Eof.spanned(29..29),
         ]
     );
 }
@@ -131,7 +151,7 @@ fn function() {
     let input = r#"
         // this is a comment!
         fn test(var: Type, var2_: bool) {
-            let x = '\n' + "String content \"\\ test" + 7 / 27.3e-2^4;
+            let x = '\n' + "String content \"\\ test" + 7 / 27.3e-2 ** 4;
             let mut chars = x.chars();
             if let Some(c) = chars.next() {
                 x = x + c;
@@ -146,81 +166,81 @@ fn function() {
         tokens,
         [
             // function signature
-            T::Fn,
-            T::Ident("test".into()),
-            T::LParen,
-            T::Ident("var".into()),
-            T::Colon,
-            T::Ident("Type".into()),
-            T::Comma,
-            T::Ident("var2_".into()),
-            T::Colon,
-            T::Ident("bool".into()),
-            T::RParen,
-            T::LBrace,
+            T::Fn.spanned(39..41),
+            T::Ident.spanned(42..46),
+            T::LParen.spanned(46..47),
+            T::Ident.spanned(47..50),
+            T::Colon.spanned(50..51),
+            T::Ident.spanned(52..56),
+            T::Comma.spanned(56..57),
+            T::Ident.spanned(58..63),
+            T::Colon.spanned(63..64),
+            T::Ident.spanned(65..69),
+            T::RParen.spanned(69..70),
+            T::LBrace.spanned(71..72),
             // `x` assignment
-            T::Let,
-            T::Ident("x".into()),
-            T::Eq,
-            T::CharLit('\n'),
-            T::Plus,
-            T::StringLit("String content \"\\ test".into()),
-            T::Plus,
-            T::IntLit(7),
-            T::FSlash,
-            T::FloatLit(27.3e-2),
-            T::Xor,
-            T::IntLit(4),
-            T::Semicolon,
+            T::Let.spanned(85..88),
+            T::Ident.spanned(89..90),
+            T::Eq.spanned(91..92),
+            T::CharLit.spanned(93..97),
+            T::Plus.spanned(98..99),
+            T::StringLit.spanned(100..126),
+            T::Plus.spanned(127..128),
+            T::IntLit.spanned(129..130),
+            T::FSlash.spanned(131..132),
+            T::FloatLit.spanned(133..140),
+            T::Exponent.spanned(141..143),
+            T::IntLit.spanned(144..145),
+            T::Semicolon.spanned(145..146),
             // `chars` assignment
-            T::Let,
-            T::Mut,
-            T::Ident("chars".into()),
-            T::Eq,
-            T::Ident("x".into()),
-            T::Dot,
-            T::Ident("chars".into()),
-            T::LParen,
-            T::RParen,
-            T::Semicolon,
+            T::Let.spanned(159..162),
+            T::Mut.spanned(163..166),
+            T::Ident.spanned(167..172),
+            T::Eq.spanned(173..174),
+            T::Ident.spanned(175..176),
+            T::Dot.spanned(176..177),
+            T::Ident.spanned(177..182),
+            T::LParen.spanned(182..183),
+            T::RParen.spanned(183..184),
+            T::Semicolon.spanned(184..185),
             // if
-            T::If,
-            T::Let,
-            T::Ident("Some".into()),
-            T::LParen,
-            T::Ident("c".into()),
-            T::RParen,
-            T::Eq,
-            T::Ident("chars".into()),
-            T::Dot,
-            T::Ident("next".into()),
-            T::LParen,
-            T::RParen,
-            T::LBrace,
+            T::If.spanned(198..200),
+            T::Let.spanned(201..204),
+            T::Ident.spanned(205..209),
+            T::LParen.spanned(209..210),
+            T::Ident.spanned(210..211),
+            T::RParen.spanned(211..212),
+            T::Eq.spanned(213..214),
+            T::Ident.spanned(215..220),
+            T::Dot.spanned(220..221),
+            T::Ident.spanned(221..225),
+            T::LParen.spanned(225..226),
+            T::RParen.spanned(226..227),
+            T::LBrace.spanned(228..229),
             // `x` re-assignment
-            T::Ident("x".into()),
-            T::Eq,
-            T::Ident("x".into()),
-            T::Plus,
-            T::Ident("c".into()),
-            T::Semicolon,
+            T::Ident.spanned(246..247),
+            T::Eq.spanned(248..249),
+            T::Ident.spanned(250..251),
+            T::Plus.spanned(252..253),
+            T::Ident.spanned(254..255),
+            T::Semicolon.spanned(255..256),
             // else if
-            T::RBrace,
-            T::Else,
-            T::If,
-            T::Bang,
-            T::Ident("var2_".into()),
-            T::LBrace,
+            T::RBrace.spanned(269..270),
+            T::Else.spanned(271..275),
+            T::If.spanned(276..278),
+            T::Bang.spanned(279..280),
+            T::Ident.spanned(280..285),
+            T::LBrace.spanned(286..287),
             // `x` re-assignment
-            T::Ident("x".into()),
-            T::Eq,
-            T::Ident("x".into()),
-            T::Plus,
-            T::StringLit(",".into()),
-            T::Semicolon,
-            T::RBrace, // end if
-            T::RBrace, // end fn
-            T::Eof,
+            T::Ident.spanned(304..305),
+            T::Eq.spanned(306..307),
+            T::Ident.spanned(308..309),
+            T::Plus.spanned(310..311),
+            T::StringLit.spanned(312..315),
+            T::Semicolon.spanned(315..316),
+            T::RBrace.spanned(329..330), // end if
+            T::RBrace.spanned(339..340), // end fn
+            T::Eof.spanned(345..345),
         ]
     );
 }

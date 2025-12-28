@@ -1,11 +1,9 @@
-use std::str::FromStr;
-
 use lazy_static::lazy_static;
 use regex::Regex;
 
-use super::token::Token;
+use super::TokenType;
 
-type Rule = fn(&str) -> Option<(Token, usize)>;
+type Rule = fn(&str) -> Option<(TokenType, usize)>;
 
 fn match_single_char(input: &str, c: char) -> Option<usize> {
     input.chars().next().and_then(|ch| (ch == c).then_some(1))
@@ -40,45 +38,12 @@ lazy_static! {
 }
 
 pub(super) const RULES: [Rule; 47] = {
-    use Token as T;
+    use TokenType as T;
     [
-        |input| {
-            match_regex(input, &INT_REGEX)
-                .map(|len| (T::IntLit(i64::from_str(&input[..len]).unwrap()), len))
-        },
-        |input| {
-            match_regex(input, &FLOAT_REGEX)
-                .map(|len| (T::FloatLit(f64::from_str(&input[..len]).unwrap()), len))
-        },
-        |input| {
-            match_regex(input, &STRING_REGEX).map(|len| {
-                (
-                    T::StringLit(
-                        input[1..len - 1]
-                            .replace("\\n", "\n")
-                            .replace("\\\"", "\"")
-                            .replace("\\\\", "\\"),
-                    ),
-                    len,
-                )
-            })
-        },
-        |input| {
-            match_regex(input, &CHAR_REGEX).map(|len| {
-                (
-                    T::CharLit(
-                        input[1..len - 1]
-                            .replace("\\n", "\n")
-                            .replace("\\\'", "'")
-                            .replace("\\\\", "\\")
-                            .chars()
-                            .next()
-                            .unwrap(),
-                    ),
-                    len,
-                )
-            })
-        },
+        |input| match_regex(input, &INT_REGEX).map(|len| (T::IntLit, len)),
+        |input| match_regex(input, &FLOAT_REGEX).map(|len| (T::FloatLit, len)),
+        |input| match_regex(input, &STRING_REGEX).map(|len| (T::StringLit, len)),
+        |input| match_regex(input, &CHAR_REGEX).map(|len| (T::CharLit, len)),
         |input| match_single_char(input, '[').map(|len| (T::LBracket, len)),
         |input| match_single_char(input, ']').map(|len| (T::RBracket, len)),
         |input| match_single_char(input, '{').map(|len| (T::LBrace, len)),
@@ -121,8 +86,6 @@ pub(super) const RULES: [Rule; 47] = {
         |input| match_keyword(input, "match").map(|len| (T::Match, len)),
         |input| match_keyword(input, "true").map(|len| (T::True, len)),
         |input| match_keyword(input, "false").map(|len| (T::False, len)),
-        |input| {
-            match_regex(input, &IDENTIFIER_REGEX).map(|len| (T::Ident(input[..len].into()), len))
-        },
+        |input| match_regex(input, &IDENTIFIER_REGEX).map(|len| (T::Ident, len)),
     ]
 };

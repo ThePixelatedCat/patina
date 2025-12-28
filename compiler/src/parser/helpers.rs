@@ -1,17 +1,20 @@
-use crate::parser::ParseError;
+use crate::{
+    lexer::{Token, TokenType},
+    span::Span,
+};
 
 use super::{
-    ParseResult, Parser, Token,
+    ParseError, ParseResult, Parser,
     ast::{Binding, Type},
 };
 
-impl<I: Iterator<Item = Token>> Parser<I> {
+impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
     pub fn binding(&mut self) -> ParseResult<Binding> {
-        let mutable = self.consume_at(&Token::Mut);
+        let mutable = self.consume_at(TokenType::Mut);
 
         let name = self.ident()?;
 
-        let type_annotation = if self.consume_at(&Token::Colon) {
+        let type_annotation = if self.consume_at(TokenType::Colon) {
             Some(self.type_()?)
         } else {
             None
@@ -26,32 +29,39 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
     pub fn type_(&mut self) -> ParseResult<Type> {
         Ok(match self.peek() {
-            Token::Ident(_) => {
-                let Some(Token::Ident(name)) = self.next() else {
+            TokenType::Ident(_) => {
+                let Some(Token {
+                    ty: TokenType::Ident(name),
+                    ..
+                }) = self.next()
+                else {
                     unreachable!()
                 };
 
-                let generics = if self.at(&Token::LAngle) {
-                    self.delimited_list(Self::type_, &Token::LAngle, &Token::RAngle)?
+                let generics = if self.at(TokenType::LAngle) {
+                    self.delimited_list(Self::type_, TokenType::LAngle, TokenType::RAngle)?
                 } else {
                     Vec::new()
                 };
 
                 Type::Ident { name, generics }
             }
-            Token::LBracket => {
+            TokenType::LBracket => {
                 self.next();
                 let inner_type = self.type_()?;
-                self.consume(&Token::RBracket)?;
+                self.consume(TokenType::RBracket)?;
                 Type::Array(Box::new(inner_type))
             }
-            Token::LParen => {
-                Type::Tuple(self.delimited_list(Self::type_, &Token::LParen, &Token::RParen)?)
-            }
-            Token::Fn => {
+            TokenType::LParen => Type::Tuple(self.delimited_list(
+                Self::type_,
+                TokenType::LParen,
+                TokenType::RParen,
+            )?),
+            TokenType::Fn => {
                 self.next();
-                let params = self.delimited_list(Self::type_, &Token::LParen, &Token::RParen)?;
-                self.consume(&Token::Colon)?;
+                let params =
+                    self.delimited_list(Self::type_, TokenType::LParen, TokenType::RParen)?;
+                self.consume(TokenType::Colon)?;
                 let result = Box::new(self.type_()?);
                 Type::Fn { params, result }
             }
@@ -66,36 +76,42 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
     pub fn ident(&mut self) -> ParseResult<String> {
         match self.next() {
-            Some(Token::Ident(ident)) => Ok(ident),
+            Some(Token {
+                ty: TokenType::Ident(name),
+                ..
+            }) => Ok(name),
             Some(token) => Err(ParseError::MismatchedToken {
-                expected: Token::Ident(String::new()).to_string(),
+                expected: TokenType::Ident(String::new()).to_string(),
                 found: token.to_string(),
             }),
-            None => Err(ParseError::MissingToken),
+            None => Err(ParseError::MismatchedToken {
+                expected: TokenType::Ident(String::new()).to_string(),
+                found: TokenType::Eof.to_string(),
+            }),
         }
     }
 
     pub fn delimited_list<T, F>(
         &mut self,
         mut f: F,
-        start: &Token,
-        end: &Token,
-    ) -> ParseResult<Vec<T>>
+        start: TokenType,
+        end: TokenType,
+    ) -> ParseResult<(Vec<T>, Span)>
     where
         F: FnMut(&mut Self) -> ParseResult<T>,
     {
-        self.consume(start)?;
+        let start = self.consume(start)?.span.start;
 
         let mut items = Vec::new();
         while !self.at(end) {
             items.push(f(self)?);
 
-            if !self.consume_at(&Token::Comma) {
+            if !self.consume_at(TokenType::Comma) {
                 break;
             }
         }
-        self.consume(end)?;
+        let end = self.consume(end)?.span.end;
 
-        Ok(items)
+        Ok((items, (start..end).into()))
     }
 }

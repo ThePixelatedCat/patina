@@ -1,12 +1,25 @@
+use crate::span::{Spannable, Spanned};
 use std::fmt::Display;
 
-#[derive(PartialEq, Debug, Clone)]
-pub enum Token {
+pub type Token = Spanned<TokenType>;
+
+impl Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} from {} to {}",
+            self.inner, self.span.start, self.span.end
+        )
+    }
+}
+
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
+pub enum TokenType {
     // Literals
-    IntLit(i64),
-    FloatLit(f64),
-    StringLit(String),
-    CharLit(char),
+    IntLit,
+    FloatLit,
+    StringLit,
+    CharLit,
     // Delimiters
     LParen,
     RParen,
@@ -54,66 +67,68 @@ pub enum Token {
     True,
     False,
     // Misc
-    Ident(String),
-    Error { start: usize, end: usize },
+    Ident,
+    Error,
     Eof,
 }
 
-impl Display for Token {
+impl Spannable for TokenType {}
+
+impl Display for TokenType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{}",
             match self {
-                Token::IntLit(_) => "int literal",
-                Token::FloatLit(_) => "float literal",
-                Token::StringLit(_) => "string literal",
-                Token::CharLit(_) => "char literal",
-                Token::LParen => "(",
-                Token::RParen => ")",
-                Token::LBrace => "{",
-                Token::RBrace => "}",
-                Token::LBracket => "[",
-                Token::RBracket => "]",
-                Token::Eq => "=",
-                Token::Ampersand => "&",
-                Token::Pipe => "|",
-                Token::Bang => "!",
-                Token::LAngle => "<",
-                Token::RAngle => ">",
-                Token::Plus => "+",
-                Token::Minus => "-",
-                Token::Times => "*",
-                Token::FSlash => "/",
-                Token::BSlash => "\\",
-                Token::Dot => ".",
-                Token::Comma => ",",
-                Token::Colon => ":",
-                Token::Semicolon => ";",
-                Token::Underscore => "_",
-                Token::Arrow => "->",
-                Token::Exponent => "**",
-                Token::And => "&&",
-                Token::Or => "||",
-                Token::Xor => "^",
-                Token::Eqq => "==",
-                Token::Neq => "!=",
-                Token::Leq => "<=",
-                Token::Geq => ">=",
-                Token::Let => "let",
-                Token::Mut => "mut",
-                Token::Const => "const",
-                Token::Fn => "fn",
-                Token::Struct => "struct",
-                Token::Enum => "enum",
-                Token::If => "if",
-                Token::Else => "else",
-                Token::Match => "match",
-                Token::True => "true",
-                Token::False => "false",
-                Token::Ident(i) => return write!(f, "identifier {i}"),
-                Token::Error { start, end } => return write!(f, "ERROR start:{start} end:{end}"),
-                Token::Eof => "eof",
+                TokenType::IntLit => "int literal",
+                TokenType::FloatLit => "float literal",
+                TokenType::StringLit => "string literal",
+                TokenType::CharLit => "char literal",
+                TokenType::LParen => "(",
+                TokenType::RParen => ")",
+                TokenType::LBrace => "{",
+                TokenType::RBrace => "}",
+                TokenType::LBracket => "[",
+                TokenType::RBracket => "]",
+                TokenType::Eq => "=",
+                TokenType::Ampersand => "&",
+                TokenType::Pipe => "|",
+                TokenType::Bang => "!",
+                TokenType::LAngle => "<",
+                TokenType::RAngle => ">",
+                TokenType::Plus => "+",
+                TokenType::Minus => "-",
+                TokenType::Times => "*",
+                TokenType::FSlash => "/",
+                TokenType::BSlash => "\\",
+                TokenType::Dot => ".",
+                TokenType::Comma => ",",
+                TokenType::Colon => ":",
+                TokenType::Semicolon => ";",
+                TokenType::Underscore => "_",
+                TokenType::Arrow => "->",
+                TokenType::Exponent => "**",
+                TokenType::And => "&&",
+                TokenType::Or => "||",
+                TokenType::Xor => "^",
+                TokenType::Eqq => "==",
+                TokenType::Neq => "!=",
+                TokenType::Leq => "<=",
+                TokenType::Geq => ">=",
+                TokenType::Let => "let",
+                TokenType::Mut => "mut",
+                TokenType::Const => "const",
+                TokenType::Fn => "fn",
+                TokenType::Struct => "struct",
+                TokenType::Enum => "enum",
+                TokenType::If => "if",
+                TokenType::Else => "else",
+                TokenType::Match => "match",
+                TokenType::True => "true",
+                TokenType::False => "false",
+                TokenType::Ident => "identifier",
+                TokenType::Error => "ERROR",
+                TokenType::Eof => "eof",
             }
         )
     }

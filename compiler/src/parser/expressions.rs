@@ -1,6 +1,14 @@
+use std::{ops::Range, str::FromStr};
+
+use crate::{
+    lexer::{Token, TokenType},
+    parser::ast::ExprS,
+    span::{Span, Spannable},
+};
+
 use super::{
-    ParseError, ParseResult, Parser, Token,
-    ast::{Bop, Expr, Lit, Unop},
+    ParseError, ParseResult, Parser,
+    ast::{Bop, Expr, Unop},
 };
 
 trait PrefixOperator {
@@ -37,118 +45,154 @@ impl InfixOperator for Bop {
     }
 }
 
-impl<I: Iterator<Item = Token>> Parser<I> {
-    pub fn expression(&mut self) -> ParseResult<Expr> {
+impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
+    pub fn expression(&mut self) -> ParseResult<ExprS> {
         self.parse_expression(0)
     }
 
-    fn parse_expression(&mut self, binding_power: u8) -> ParseResult<Expr> {
+    fn parse_expression(&mut self, binding_power: u8) -> ParseResult<ExprS> {
         let mut lhs = match self.peek() {
-            Token::LParen => {
-                self.next();
+            TokenType::LParen => {
+                let start = self.next().unwrap().span.start;
                 let expr = self.expression()?;
-                if self.consume_at(&Token::Comma) {
+                
+                let expr = if self.consume_at(TokenType::Comma) {
                     let mut exprs = vec![expr];
-                    while !self.at(&Token::RParen) {
+                    while !self.at(TokenType::RParen) {
                         exprs.push(self.expression()?);
 
-                        if !self.consume_at(&Token::Comma) {
+                        if !self.consume_at(TokenType::Comma) {
                             break;
                         }
                     }
-                    self.consume(&Token::RParen)?;
 
-                    Expr::Literal(Lit::Tuple(exprs))
+                    Expr::Tuple(exprs)
                 } else {
-                    self.consume(&Token::RParen)?;
-                    expr
-                }
-            }
-            Token::IntLit(_)
-            | Token::FloatLit(_)
-            | Token::StringLit(_)
-            | Token::CharLit(_)
-            | Token::True
-            | Token::False => Expr::Literal(match self.next().unwrap() {
-                Token::IntLit(int) => Lit::Int(int),
-                Token::FloatLit(float) => Lit::Float(float),
-                Token::StringLit(string) => Lit::Str(string),
-                Token::CharLit(char) => Lit::Char(char),
-                Token::True => Lit::Bool(true),
-                Token::False => Lit::Bool(false),
-                _ => unreachable!(),
-            }),
-            Token::LBracket => Expr::Literal(Lit::Array(self.delimited_list(
-                Self::expression,
-                &Token::LBracket,
-                &Token::RBracket,
-            )?)),
-            Token::Ident(_) => {
-                let Some(Token::Ident(ident)) = self.next() else {
-                    unreachable!()
+                    expr.inner
                 };
 
-                Expr::Ident(ident)
+                let end = self.consume(TokenType::RParen)?.span.end;
+
+                expr.spanned(start..end)
             }
-            Token::If => {
-                self.next();
-                self.consume(&Token::LParen)?;
+            TokenType::IntLit => {
+                let token = self.next().unwrap();
+                let val = i64::from_str(self.input[token.span.into()]).unwrap();
+                Expr::Int(val).spanned(token.span)
+            }
+            TokenType::FloatLit => {
+                let token = self.next().unwrap();
+                let val = f64::from_str(self.input[token.span.into()]).unwrap();
+                Expr::Float(val).spanned(token.span)
+            }
+            TokenType::StringLit => {
+                let token = self.next().unwrap();
+                let span = token.span;
+
+                let val = self.input[span.start + 1..span.end - 1]
+                    .replace("\\n", "\n")
+                    .replace("\\\"", "\"")
+                    .replace("\\\\", "\\");
+
+                Expr::Str(val).spanned(token.span)
+            }
+            TokenType::CharLit => {
+                let token = self.next().unwrap();
+                let span = token.span;
+
+                let val = self.input[span.start + 1..span.end - 1]
+                    .replace("\\n", "\n")
+                    .replace("\\\'", "'")
+                    .replace("\\\\", "\\")
+                    .chars()
+                    .next()
+                    .unwrap();
+
+                Expr::Char(val).spanned(token.span)
+            }
+            TokenType::True => Expr::Bool(true).spanned(self.next().unwrap().span),
+            TokenType::False => Expr::Bool(false).spanned(self.next().unwrap().span),
+            TokenType::LBracket => {
+                let (arr, span) = self.delimited_list(
+                    Self::expression,
+                    TokenType::LBracket,
+                    TokenType::RBracket,
+                )?;
+                Expr::Array(arr).spanned(span)
+            }
+            TokenType::Ident => {
+                let token = self.next().unwrap();
+                let range: Range<_> = token.span.into();
+
+                let ident = self.input[range].to_string();
+
+                Expr::Ident(ident).spanned(token.span)
+            }
+            TokenType::If => {
+                let start = self.next().unwrap().span.start;
+
+                self.consume(TokenType::LParen)?;
                 let cond = self.expression()?;
-                self.consume(&Token::RParen)?;
+                self.consume(TokenType::RParen)?;
 
                 let th = self.expression()?;
 
-                let el = if self.consume_at(&Token::Else) {
+                let el = if self.consume_at(TokenType::Else) {
                     Some(Box::new(self.expression()?))
                 } else {
                     None
                 };
+
+                let end = el.map(|e| e.span.end).unwrap_or(th.span.end);
 
                 Expr::If {
                     cond: Box::new(cond),
                     th: Box::new(th),
                     el,
                 }
+                .spanned(start..end)
             }
-            op @ (Token::Minus | Token::Bang) => {
+            op @ (TokenType::Minus | TokenType::Bang) => {
                 let op = match op {
-                    Token::Minus => Unop::Neg,
-                    Token::Bang => Unop::Not,
+                    TokenType::Minus => Unop::Neg,
+                    TokenType::Bang => Unop::Not,
                     _ => unreachable!(),
                 };
 
-                self.next();
+                let start = self.next().unwrap().span.start;
 
                 let right_binding_power = op.binding_power();
                 let expr = self.parse_expression(right_binding_power)?;
+
                 Expr::UnaryOp {
                     op,
                     expr: Box::new(expr),
-                }
+                }.spanned(start..expr.span.end)
             }
-            Token::Let => {
-                self.next();
+            TokenType::Let => {
+                let start = self.next().unwrap().span.start;
 
                 let binding = self.binding()?;
 
-                self.consume(&Token::Eq)?;
+                self.consume(TokenType::Eq)?;
                 let value = self.expression()?;
 
                 Expr::Let {
                     binding,
                     value: Box::new(value),
-                }
+                }.spanned(start..value.span.end)
             }
-            Token::Pipe => {
-                let params = self.delimited_list(Self::binding, &Token::Pipe, &Token::Pipe)?;
+            TokenType::Pipe => {
+                let (params, Span { start, .. }) =
+                    self.delimited_list(Self::binding, TokenType::Pipe, TokenType::Pipe)?;
 
-                let return_type = if self.consume_at(&Token::Colon) {
+                let return_type = if self.consume_at(TokenType::Colon) {
                     Some(self.type_()?)
                 } else {
                     None
                 };
 
-                self.consume(&Token::Arrow)?;
+                self.consume(TokenType::Arrow)?;
 
                 let body = Box::new(self.expression()?);
 
@@ -156,94 +200,103 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                     params,
                     return_type,
                     body,
-                }
+                }.spanned(start..body.span.end)
             }
-            Token::LBrace => {
-                self.next();
+            TokenType::LBrace => {
+                let start = self.next().unwrap().span.start;
 
                 let mut trailing = true;
                 let mut exprs = Vec::new();
-                while !self.at(&Token::RBrace) {
+                while !self.at(TokenType::RBrace) {
                     exprs.push(self.expression()?);
 
-                    if self.consume_at(&Token::Semicolon) && self.at(&Token::RBrace) {
+                    if self.consume_at(TokenType::Semicolon) && self.at(TokenType::RBrace) {
                         trailing = false;
                         break;
                     }
                 }
-                self.consume(&Token::RBrace)?;
+                let end = self.consume(TokenType::RBrace)?.span.end;
 
-                Expr::Block { exprs, trailing }
+                Expr::Block { exprs, trailing }.spanned(start..end)
             }
             token => {
                 return Err(ParseError::UnexpectedToken(
-                    token.to_string(),
+                    token,
                     Some("start of expression".into()),
                 ));
             }
         };
         loop {
             let op = match self.peek() {
-                Token::Eq => Bop::Assign,
-                Token::Plus => Bop::Add,
-                Token::Minus => Bop::Sub,
-                Token::Times => Bop::Mul,
-                Token::FSlash => Bop::Div,
-                Token::Xor => Bop::Xor,
-                Token::Ampersand => Bop::BAnd,
-                Token::Pipe => Bop::BOr,
-                Token::Exponent => Bop::Exp,
-                Token::Eqq => Bop::Eqq,
-                Token::Neq => Bop::Neq,
-                Token::And => Bop::And,
-                Token::Or => Bop::Or,
-                Token::LAngle => Bop::Lt,
-                Token::Leq => Bop::Leq,
-                Token::RAngle => Bop::Gt,
-                Token::Geq => Bop::Geq,
-                Token::LBracket => {
+                TokenType::Eq => Bop::Assign,
+                TokenType::Plus => Bop::Add,
+                TokenType::Minus => Bop::Sub,
+                TokenType::Times => Bop::Mul,
+                TokenType::FSlash => Bop::Div,
+                TokenType::Xor => Bop::Xor,
+                TokenType::Ampersand => Bop::BAnd,
+                TokenType::Pipe => Bop::BOr,
+                TokenType::Exponent => Bop::Exp,
+                TokenType::Eqq => Bop::Eqq,
+                TokenType::Neq => Bop::Neq,
+                TokenType::And => Bop::And,
+                TokenType::Or => Bop::Or,
+                TokenType::LAngle => Bop::Lt,
+                TokenType::Leq => Bop::Leq,
+                TokenType::RAngle => Bop::Gt,
+                TokenType::Geq => Bop::Geq,
+                TokenType::LBracket => {
                     self.next();
 
+                    let start = lhs.span.start;
+
                     let index = Box::new(self.expression()?);
-                    self.consume(&Token::RBracket)?;
+                    let end = self.consume(TokenType::RBracket)?.span.end;
 
                     lhs = Expr::Index {
                         arr: Box::new(lhs),
                         index
-                    };
+                    }.spanned(start..end);
                     continue;
                 }
-                Token::Dot => {
+                TokenType::Dot => {
                     self.next();
+
+                    let start = lhs.span.start;
+
+                    let field = self.ident()?;
+                    let end = lhs.span.end + 1 + field.len();
 
                     lhs = Expr::FieldAccess {
                         base: Box::new(lhs),
-                        field: self.ident()?
-                    };
+                        field
+                    }.spanned(start..end);
                     continue;
                 }
-                Token::LParen => {
-                    let args =
-                        self.delimited_list(Self::expression, &Token::LParen, &Token::RParen)?;
+                TokenType::LParen => {
+                    let start = lhs.span.start;
+
+                    let (args, Span { end, .. }) =
+                        self.delimited_list(Self::expression, TokenType::LParen, TokenType::RParen)?;
 
                     lhs = Expr::FnCall {
                         fun: Box::new(lhs),
                         args,
-                    };
+                    }.spanned(start..end);
                     continue;
                 }
-                Token::Eof => break,
-                Token::Else
-                | Token::RParen // Delimiters
-                | Token::RBrace
-                | Token::RBracket
-                | Token::Comma
-                | Token::Semicolon
-                | Token::Fn
-                | Token::Const
-                | Token::Struct
-                | Token::Enum => break,
-                token => return Err(ParseError::UnexpectedToken(token.to_string(), Some("end of expression".into()))),
+                TokenType::Eof => break,
+                TokenType::Else
+                | TokenType::RParen // Delimiters
+                | TokenType::RBrace
+                | TokenType::RBracket
+                | TokenType::Comma
+                | TokenType::Semicolon
+                | TokenType::Fn
+                | TokenType::Const
+                | TokenType::Struct
+                | TokenType::Enum => break,
+                token => return Err(ParseError::UnexpectedToken(token, Some("end of expression".into()))),
             };
 
             let (left_binding_power, right_binding_power) = op.binding_power();
@@ -255,11 +308,15 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             self.next();
 
             let rhs = self.parse_expression(right_binding_power)?;
+
+            let start = lhs.span.start;
+            let end = rhs.span.end;
+
             lhs = Expr::BinaryOp {
                 op,
                 lhs: Box::new(lhs),
                 rhs: Box::new(rhs),
-            };
+            }.spanned(start..end);
         }
 
         Ok(lhs)

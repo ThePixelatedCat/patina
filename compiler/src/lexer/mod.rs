@@ -3,11 +3,13 @@ mod rules;
 mod test;
 mod token;
 
-pub use token::Token;
+pub use token::{Token, TokenType};
+
+use crate::span::Spannable;
 
 pub struct Lexer<'input> {
     input: &'input str,
-    position: usize,
+    pos: usize,
     eof: bool,
 }
 
@@ -15,14 +17,14 @@ impl<'input> Iterator for Lexer<'input> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.position >= self.input.len() {
+        if self.pos >= self.input.len() {
             if self.eof {
                 return None;
             }
             self.eof = true;
-            Some(Token::Eof)
+            Some(TokenType::Eof.spanned(self.pos..self.pos))
         } else {
-            Some(self.next_token(&self.input[self.position..]))
+            Some(self.next_token(&self.input[self.pos..]))
         }
     }
 }
@@ -31,7 +33,7 @@ impl<'input> Lexer<'input> {
     pub fn new(input: &'input str) -> Self {
         Self {
             input,
-            position: 0,
+            pos: 0,
             eof: false,
         }
     }
@@ -48,14 +50,14 @@ impl<'input> Lexer<'input> {
     /// Returns `None` if the lexer cannot find a token at the start of `input`.
     fn valid_token(&mut self, input: &str) -> Option<Token> {
         if input.starts_with("//") {
-            self.position += input
+            self.pos += input
                 .char_indices()
                 .find(|(_, c)| *c == '\n')
                 .expect("expected newline to terminate comment")
                 .0;
             self.next()
         } else if input.chars().next().unwrap().is_whitespace() {
-            self.position += input
+            self.pos += input
                 .char_indices()
                 .take_while(|(_, c)| c.is_whitespace())
                 .last()
@@ -70,24 +72,23 @@ impl<'input> Lexer<'input> {
                 .filter_map(|rule| rule(input))
                 .max_by_key(|&(_, len)| len)?;
 
-            self.position += len;
+            let token = token.spanned(self.pos..self.pos + len);
+            self.pos += len;
+
             Some(token)
         }
     }
 
-    /// Always "succeeds", because it creates an error `Token`.
+    /// Always "succeeds", because it creates an error `TokenType`.
     fn invalid_token(&mut self, input: &str) -> Token {
-        let start = self.position;
+        let start = self.pos;
         let len = input
             .char_indices()
             .map(|(pos, _)| pos)
             .find(|pos| self.valid_token(&input[*pos..]).is_some())
             .unwrap_or(input.len());
 
-        self.position = start + len;
-        Token::Error {
-            start,
-            end: self.position,
-        }
+        self.pos = start + len;
+        TokenType::Error.spanned(start..self.pos)
     }
 }
