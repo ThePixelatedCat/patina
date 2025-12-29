@@ -55,7 +55,7 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
             TokenType::LParen => {
                 let start = self.next().unwrap().span.start;
                 let expr = self.expression()?;
-                
+
                 let expr = if self.consume_at(TokenType::Comma) {
                     let mut exprs = vec![expr];
                     while !self.at(TokenType::RParen) {
@@ -77,12 +77,12 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
             }
             TokenType::IntLit => {
                 let token = self.next().unwrap();
-                let val = i64::from_str(self.input[token.span.into()]).unwrap();
+                let val = i64::from_str(&self.input[Range::from(token.span)]).unwrap();
                 Expr::Int(val).spanned(token.span)
             }
             TokenType::FloatLit => {
                 let token = self.next().unwrap();
-                let val = f64::from_str(self.input[token.span.into()]).unwrap();
+                let val = f64::from_str(&self.input[Range::from(token.span)]).unwrap();
                 Expr::Float(val).spanned(token.span)
             }
             TokenType::StringLit => {
@@ -143,7 +143,7 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
                     None
                 };
 
-                let end = el.map(|e| e.span.end).unwrap_or(th.span.end);
+                let end = el.as_ref().map(|e| e.span.end).unwrap_or(th.span.end);
 
                 Expr::If {
                     cond: Box::new(cond),
@@ -164,10 +164,13 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
                 let right_binding_power = op.binding_power();
                 let expr = self.parse_expression(right_binding_power)?;
 
+                let end = expr.span.end;
+
                 Expr::UnaryOp {
                     op,
                     expr: Box::new(expr),
-                }.spanned(start..expr.span.end)
+                }
+                .spanned(start..end)
             }
             TokenType::Let => {
                 let start = self.next().unwrap().span.start;
@@ -177,10 +180,13 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
                 self.consume(TokenType::Eq)?;
                 let value = self.expression()?;
 
+                let end = value.span.end;
+
                 Expr::Let {
                     binding,
                     value: Box::new(value),
-                }.spanned(start..value.span.end)
+                }
+                .spanned(start..end)
             }
             TokenType::Pipe => {
                 let (params, Span { start, .. }) =
@@ -195,12 +201,14 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
                 self.consume(TokenType::Arrow)?;
 
                 let body = Box::new(self.expression()?);
+                let end = body.span.end;
 
                 Expr::Lambda {
                     params,
                     return_type,
                     body,
-                }.spanned(start..body.span.end)
+                }
+                .spanned(start..end)
             }
             TokenType::LBrace => {
                 let start = self.next().unwrap().span.start;
@@ -264,8 +272,8 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
 
                     let start = lhs.span.start;
 
-                    let field = self.ident()?;
-                    let end = lhs.span.end + 1 + field.len();
+                    let (field, field_span) = self.ident()?;
+                    let end = field_span.end;
 
                     lhs = Expr::FieldAccess {
                         base: Box::new(lhs),
@@ -316,7 +324,8 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
                 op,
                 lhs: Box::new(lhs),
                 rhs: Box::new(rhs),
-            }.spanned(start..end);
+            }
+            .spanned(start..end);
         }
 
         Ok(lhs)

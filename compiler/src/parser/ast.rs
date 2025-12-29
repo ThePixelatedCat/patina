@@ -1,41 +1,51 @@
+macro_rules! span {
+    ($t:ident as $s:ident) => {
+        pub type $s = Spanned<$t>;
+        impl Spannable for $t {}
+    };
+}
+
 use crate::span::{Spannable, Spanned};
 
 pub type Ast = Vec<ItemS>;
 
-pub type ItemS = Spanned<Item>;
-impl Spannable for Item {}
+span! {Item as ItemS}
 #[derive(Debug, Clone, PartialEq)]
 pub enum Item {
     Const {
         ident: String,
         ty: TypeS,
-        value: Expr,
+        value: ExprS,
     },
     Function {
         name: String,
         params: Vec<Binding>,
         return_type: Option<TypeS>,
-        body: Expr,
+        body: ExprS,
     },
     Struct {
         name: String,
         generic_params: Vec<String>,
-        fields: Vec<Field>,
+        fields: Vec<FieldS>,
     },
     Enum {
         name: String,
         generic_params: Vec<String>,
-        variants: Vec<Variant>,
+        variants: Vec<VariantS>,
     },
 }
 
+span!(Variant as VariantS);
 #[derive(Debug, Clone, PartialEq)]
 pub enum Variant {
     Unit(String),
     Tuple(String, Vec<TypeS>),
-    Struct(String, Vec<Field>),
+    Struct(String, Vec<FieldS>),
 }
 
+// pub type FieldS = Spanned<Field>;
+// impl Spannable for Field {}
+span! {Field as FieldS}
 #[derive(Debug, Clone, PartialEq)]
 pub struct Field {
     pub name: String,
@@ -49,24 +59,22 @@ pub struct Binding {
     pub type_annotation: Option<TypeS>,
 }
 
-pub type TypeS = Spanned<Type>;
-impl Spannable for Type {}
+span! {Type as TypeS}
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
     Ident {
         name: String,
-        generics: Vec<Type>,
+        generics: Vec<TypeS>,
     },
-    Array(Box<Type>),
-    Tuple(Vec<Type>),
+    Array(Box<TypeS>),
+    Tuple(Vec<TypeS>),
     Fn {
-        params: Vec<Type>,
-        result: Box<Type>,
+        params: Vec<TypeS>,
+        result: Box<TypeS>,
     },
 }
 
-pub type ExprS = Spanned<Expr>;
-impl Spannable for Expr {}
+span! {Expr as ExprS}
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Ident(String),

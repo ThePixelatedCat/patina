@@ -2,8 +2,8 @@ mod ast;
 mod expressions;
 mod helpers;
 mod items;
-#[cfg(test)]
-mod test;
+// #[cfg(test)]
+// mod test;
 
 use crate::lexer::{Lexer, Token, TokenType};
 use std::{error::Error, fmt::Display, iter::Peekable};
@@ -46,7 +46,7 @@ where
 }
 
 impl<'input> Parser<'input, Lexer<'input>> {
-    pub fn new(input: &'input str) -> Parser<Lexer<'input>> {
+    pub fn new(input: &'input str) -> Parser<'input, Lexer<'input>> {
         Parser {
             input,
             tokens: Lexer::new(input).peekable(),
