@@ -1,5 +1,3 @@
-use crate::span::Spannable;
-
 use super::Parser;
 use super::ast::{Ast, Binding, Bop, Expr, ExprS, Field, Item, ItemS, Type, Unop, Variant};
 
@@ -638,139 +636,184 @@ fn parse_file() {
                     mutable: true,
                     ident: "x".into(),
                     type_annotation: None
-                }.spanned(26..31),
+                }
+                .spanned(26..31),
                 Binding::Var {
                     mutable: false,
                     ident: "bar".into(),
-                    type_annotation: Some(Type::Named {
-                        name: "Bar".into(),
-                        generics: vec![
-                            Type::Named {
-                                name: "Baz".into(),
-                                generics: vec![Type::Named {
-                                    name: "T".into(),
+                    type_annotation: Some(
+                        Type::Named {
+                            name: "Bar".into(),
+                            generics: vec![
+                                Type::Named {
+                                    name: "Baz".into(),
+                                    generics: vec![
+                                        Type::Named {
+                                            name: "T".into(),
+                                            generics: vec![],
+                                        }
+                                        .spanned(46..47)
+                                    ],
+                                }
+                                .spanned(42..48),
+                                Type::Named {
+                                    name: "U".into(),
                                     generics: vec![],
-                                }.spanned(46..47)],
-                            }.spanned(42..48),
-                            Type::Named {
-                                name: "U".into(),
-                                generics: vec![],
-                            }.spanned(50..51)
-                        ],
-                    }.spanned(38..52))
-                }.spanned(33..52)
-            ],
-            return_type: Some(Type::Fn {
-                params: vec![Type::Named {
-                    name: "Int".into(),
-                    generics: vec![]
-                }.spanned(58..61)],
-                result: Type::Named {
-                    name: "Int".into(),
-                    generics: vec![]
+                                }
+                                .spanned(50..51)
+                            ],
+                        }
+                        .spanned(38..52)
+                    )
                 }
-                .spanned(64..67)
-                .into()
-            }.spanned(55..67)),
+                .spanned(33..52)
+            ],
+            return_type: Some(
+                Type::Fn {
+                    params: vec![
+                        Type::Named {
+                            name: "Int".into(),
+                            generics: vec![]
+                        }
+                        .spanned(58..61)
+                    ],
+                    result: Type::Named {
+                        name: "Int".into(),
+                        generics: vec![]
+                    }
+                    .spanned(64..67)
+                    .into()
+                }
+                .spanned(55..67)
+            ),
             body: Expr::Block {
                 exprs: vec![
                     Expr::Let {
                         binding: Binding::Var {
                             mutable: true,
-                            name: "x".into(),
-                            type_annotation: Some(Type::Tuple(vec![
-                                Type::Named {
-                                    name: "Float".into(),
-                                    generics: vec![]
-                                },
-                                Type::Named {
-                                    name: "T".into(),
-                                    generics: vec![]
-                                }
-                            ]))
-                        },
+                            ident: "x".into(),
+                            type_annotation: Some(
+                                Type::Tuple(vec![
+                                    Type::Named {
+                                        name: "Float".into(),
+                                        generics: vec![]
+                                    }
+                                    .spanned(97..102),
+                                    Type::Named {
+                                        name: "T".into(),
+                                        generics: vec![]
+                                    }
+                                    .spanned(104..105)
+                                ])
+                                .spanned(96..106)
+                            )
+                        }
+                        .spanned(89..106),
                         value: Expr::BinaryOp {
                             op: Bop::Add,
                             lhs: Expr::UnaryOp {
                                 op: Unop::Neg,
-                                expr: Expr::Float(7.0)
+                                expr: Expr::Float(7.0).spanned(110..113).into()
                             }
+                            .spanned(109..113)
                             .into(),
                             rhs: Expr::FnCall {
-                                fun: Expr::Ident("sin".into()).into(),
-                                args: vec![Expr::Ident("y".into())]
+                                fun: Expr::Ident("sin".into()).spanned(116..119).into(),
+                                args: vec![Expr::Ident("y".into()).spanned(120..121)]
                             }
+                            .spanned(116..122)
                             .into()
                         }
+                        .spanned(109..122)
                         .into()
-                    },
-                    Expr::BinaryOp {
-                        op: Bop::Assign,
-                        lhs: Expr::Ident("x".into()).into(),
-                        rhs: Expr::If {
+                    }
+                    .spanned(85..122),
+                    Expr::Assign {
+                        ident: "x".into(),
+                        value: Expr::If {
                             cond: Expr::BinaryOp {
                                 op: Bop::Lt,
-                                lhs: Expr::Ident("bar".into()).into(),
-                                rhs: Expr::Int(3)
+                                lhs: Expr::Ident("bar".into()).spanned(144..147).into(),
+                                rhs: Expr::Int(3).spanned(150..151).into()
                             }
+                            .spanned(144..151)
                             .into(),
                             th: Expr::Block {
                                 exprs: vec![
                                     Expr::Let {
                                         binding: Binding::Var {
                                             mutable: false,
-                                            name: "baz".into(),
+                                            ident: "baz".into(),
                                             type_annotation: None
-                                        },
+                                        }
+                                        .spanned(175..178),
                                         value: Expr::BinaryOp {
                                             op: Bop::Add,
                                             lhs: Expr::FieldAccess {
-                                                base: Expr::Ident("bar".into()).into(),
+                                                base: Expr::Ident("bar".into())
+                                                    .spanned(181..184)
+                                                    .into(),
                                                 field: "value".into()
                                             }
+                                            .spanned(181..190)
                                             .into(),
                                             rhs: Expr::BinaryOp {
                                                 op: Bop::Mul,
-                                                lhs: Expr::Int(2),
-                                                rhs: Expr::Int(4)
+                                                lhs: Expr::Int(2).spanned(193..194).into(),
+                                                rhs: Expr::Int(4).spanned(197..198).into()
                                             }
+                                            .spanned(193..198)
                                             .into()
                                         }
+                                        .spanned(181..198)
                                         .into()
-                                    },
+                                    }
+                                    .spanned(171..198),
                                     Expr::BinaryOp {
                                         op: Bop::Add,
-                                        lhs: Expr::Ident("x".into()).into(),
-                                        rhs: Expr::Int(1)
+                                        lhs: Expr::Ident("x".into()).spanned(216..217).into(),
+                                        rhs: Expr::Int(1).spanned(220..221).into()
                                     }
+                                    .spanned(216..221)
                                 ],
                                 trailing: false
                             }
+                            .spanned(153..236)
                             .into(),
                             el: Some(
                                 Expr::If {
                                     cond: Expr::BinaryOp {
                                         op: Bop::Leq,
-                                        lhs: Expr::Ident("bar".into()).into(),
-                                        rhs: Expr::Int(2)
+                                        lhs: Expr::Ident("bar".into()).spanned(246..249).into(),
+                                        rhs: Expr::Int(2).spanned(253..254).into()
                                     }
+                                    .spanned(246..254)
                                     .into(),
                                     th: Expr::FnCall {
-                                        fun: Expr::Ident("fizz".into()).into(),
-                                        args: vec![Expr::Int(3).into(), Lit::Float(5.1)]
+                                        fun: Expr::Ident("fizz".into()).spanned(272..276).into(),
+                                        args: vec![
+                                            Expr::Int(3).spanned(277..278),
+                                            Expr::Float(5.1).spanned(280..283)
+                                        ]
                                     }
+                                    .spanned(272..284)
                                     .into(),
                                     el: None
                                 }
+                                .spanned(242..284)
                                 .into()
                             )
                         }
+                        .spanned(140..284)
                         .into()
-                    },
+                    }
+                    .spanned(136..284),
                 ],
                 trailing: true
             }
-        }.spanned(9..294)
+            .spanned(71..294)
+        }
+        .spanned(9..294)
     );
 
     assert_eq!(
@@ -784,8 +827,10 @@ fn parse_file() {
                     ty: Type::Named {
                         name: "Str".into(),
                         generics: vec![],
-                    }.spanned(338..341),
-                }.spanned(335..341),
+                    }
+                    .spanned(338..341),
+                }
+                .spanned(335..341),
                 Field {
                     name: "bar".into(),
                     ty: Type::Named {
@@ -793,11 +838,15 @@ fn parse_file() {
                         generics: vec![
                             Type::Named {
                                 name: "Baz".into(),
-                                generics: vec![Type::Named {
-                                    name: "T".into(),
-                                    generics: vec![],
-                                }.spanned(368..369)],
-                            }.spanned(364..370),
+                                generics: vec![
+                                    Type::Named {
+                                        name: "T".into(),
+                                        generics: vec![],
+                                    }
+                                    .spanned(368..369)
+                                ],
+                            }
+                            .spanned(364..370),
                             Type::Array(
                                 Type::Named {
                                     name: "U".into(),
@@ -805,11 +854,15 @@ fn parse_file() {
                                 }
                                 .spanned(373..374)
                                 .into()
-                            ).spanned(372..375)
+                            )
+                            .spanned(372..375)
                         ],
-                    }.spanned(360..376),
-                }.spanned(355..376)
+                    }
+                    .spanned(360..376),
+                }
+                .spanned(355..376)
             ]
-        }.spanned(304..387)
+        }
+        .spanned(304..387)
     );
 }

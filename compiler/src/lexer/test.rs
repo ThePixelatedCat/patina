@@ -1,4 +1,4 @@
-use super::{Lexer, TokenType as T, Token};
+use super::{Lexer, Token, TokenType as T};
 
 macro_rules! count {
     () => (0usize);

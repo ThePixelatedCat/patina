@@ -76,7 +76,7 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
             }
             TokenType::IntLit => {
                 let token = self.next().unwrap();
-                let val = i64::from_str(&self.input[Range::from(token.span)]).unwrap();
+                let val = u64::from_str(&self.input[Range::from(token.span)]).unwrap();
                 Expr::Int(val).spanned(token.span)
             }
             TokenType::FloatLit => {

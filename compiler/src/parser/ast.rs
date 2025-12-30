@@ -74,7 +74,7 @@ span! {Expr as ExprS}
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Ident(String),
-    Int(i64),
+    Int(u64),
     Float(f64),
     Str(String),
     Char(char),
