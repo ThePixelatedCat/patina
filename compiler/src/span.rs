@@ -3,10 +3,10 @@ use std::ops::Range;
 #[macro_export]
 macro_rules! span {
     ($t:ident as $s:ident) => {
-        pub type $s = crate::span::Spanned<$t>;
+        pub type $s = $crate::span::Spanned<$t>;
         impl $t {
-            pub fn spanned(self, span: impl Into<crate::span::Span>) -> crate::span::Spanned<Self> {
-                crate::span::Spanned {
+            pub fn spanned(self, span: impl Into<$crate::span::Span>) -> $crate::span::Spanned<Self> {
+                $crate::span::Spanned {
                     inner: self,
                     span: span.into(),
                 }
