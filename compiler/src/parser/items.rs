@@ -7,11 +7,11 @@ use crate::{
 };
 
 use super::{
-    ParseError, ParseResult, Parser,
+    ParseTokenError, ParseResult, Parser,
     ast::{Ast, Field, Item, ItemS, Variant},
 };
 
-impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
+impl<I: Iterator<Item = Token>> Parser<'_, I> {
     pub fn file(&mut self) -> ParseResult<Ast> {
         let mut items = Vec::new();
         while !self.at(TokenType::Eof) {
@@ -107,7 +107,7 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
                             }
                             TokenType::Comma => Variant::Unit(variant_name).spanned(name_span),
                             token => {
-                                return Err(ParseError::UnexpectedToken(
+                                return Err(ParseTokenError::Unexpected(
                                     token,
                                     Some("after variant name. expected one of `,` `(` `{`".into()),
                                 ));
@@ -126,7 +126,7 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
                 .spanned(start..variants_span.end)
             }
             token => {
-                return Err(ParseError::UnexpectedToken(
+                return Err(ParseTokenError::Unexpected(
                     token,
                     Some("start of item".into()),
                 ));
@@ -161,7 +161,7 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
                         (this.input[Range::from(span)].to_string(), span.start)
                     }
                     other_type => {
-                        return Err(ParseError::MismatchedToken {
+                        return Err(ParseTokenError::Mismatched {
                             expected: TokenType::Ident,
                             found: other_type,
                         });

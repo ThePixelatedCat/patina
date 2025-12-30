@@ -11,7 +11,7 @@ pub struct Lexer<'input> {
     eof: bool,
 }
 
-impl<'input> Iterator for Lexer<'input> {
+impl Iterator for Lexer<'_> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -28,7 +28,7 @@ impl<'input> Iterator for Lexer<'input> {
 }
 
 impl<'input> Lexer<'input> {
-    pub fn new(input: &'input str) -> Self {
+    pub const fn new(input: &'input str) -> Self {
         Self {
             input,
             pos: 0,

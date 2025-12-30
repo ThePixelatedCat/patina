@@ -29,7 +29,7 @@ pub enum Item {
 }
 
 span! {Variant as VariantS}
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Variant {
     Unit(String),
     Tuple(String, Vec<TypeS>),
@@ -39,14 +39,14 @@ pub enum Variant {
 // pub type FieldS = Spanned<Field>;
 // impl Spannable for Field {}
 span! {Field as FieldS}
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Field {
     pub name: String,
     pub ty: TypeS,
 }
 
 span! {Binding as BindingS}
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Binding {
     Var {
         mutable: bool,
@@ -126,7 +126,7 @@ pub enum Expr {
     },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Bop {
     Add,
     Sub,
@@ -146,8 +146,33 @@ pub enum Bop {
     Leq,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+impl Bop {
+    pub const fn binding_power(self) -> (u8, u8) {
+        match self {
+            Self::Or => (3, 4),
+            Self::And => (5, 6),
+            Self::Eqq | Self::Neq => (7, 8),
+            Self::Gt | Self::Lt | Self::Leq | Self::Geq => (9, 10),
+            Self::BOr => (11, 12),
+            Self::Xor => (13, 14),
+            Self::BAnd => (15, 16),
+            Self::Add | Self::Sub => (17, 18),
+            Self::Mul | Self::Div => (19, 20),
+            Self::Exp => (22, 21),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Unop {
     Not,
     Neg,
+}
+
+impl Unop {
+    pub const fn binding_power(self) -> u8 {
+        match self {
+            Self::Neg | Self::Not => 51,
+        }
+    }
 }

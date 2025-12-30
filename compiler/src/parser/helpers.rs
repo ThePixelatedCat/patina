@@ -6,11 +6,11 @@ use crate::{
 };
 
 use super::{
-    ParseError, ParseResult, Parser,
+    ParseTokenError, ParseResult, Parser,
     ast::{Binding, BindingS, Type, TypeS},
 };
 
-impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
+impl<I: Iterator<Item = Token>> Parser<'_, I> {
     pub fn binding(&mut self) -> ParseResult<BindingS> {
         let mutable = self.at(TokenType::Mut);
         let mut_start = mutable.then(|| self.next().unwrap().span.start);
@@ -83,7 +83,7 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
                 Type::Fn { params, result }.spanned(start..end)
             }
             token => {
-                return Err(ParseError::UnexpectedToken(
+                return Err(ParseTokenError::Unexpected(
                     token,
                     Some("start of type name".into()),
                 ));
@@ -98,7 +98,7 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
 
                 Ok((self.input[Range::from(span)].to_string(), span))
             }
-            other_type => Err(ParseError::MismatchedToken {
+            other_type => Err(ParseTokenError::Mismatched {
                 expected: TokenType::Ident,
                 found: other_type,
             }),

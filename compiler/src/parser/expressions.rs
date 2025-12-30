@@ -7,44 +7,11 @@ use crate::{
 };
 
 use super::{
-    ParseError, ParseResult, Parser,
+    ParseTokenError, ParseResult, Parser,
     ast::{Bop, Expr, Unop},
 };
 
-trait PrefixOperator {
-    fn binding_power(&self) -> u8;
-}
-
-trait InfixOperator {
-    fn binding_power(&self) -> (u8, u8);
-}
-
-impl PrefixOperator for Unop {
-    fn binding_power(&self) -> u8 {
-        match self {
-            Unop::Neg | Unop::Not => 51,
-        }
-    }
-}
-
-impl InfixOperator for Bop {
-    fn binding_power(&self) -> (u8, u8) {
-        match self {
-            Bop::Or => (3, 4),
-            Bop::And => (5, 6),
-            Bop::Eqq | Bop::Neq => (7, 8),
-            Bop::Gt | Bop::Lt | Bop::Leq | Bop::Geq => (9, 10),
-            Bop::BOr => (11, 12),
-            Bop::Xor => (13, 14),
-            Bop::BAnd => (15, 16),
-            Bop::Add | Bop::Sub => (17, 18),
-            Bop::Mul | Bop::Div => (19, 20),
-            Bop::Exp => (22, 21),
-        }
-    }
-}
-
-impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
+impl<I: Iterator<Item = Token>> Parser<'_, I> {
     pub fn expression(&mut self) -> ParseResult<ExprS> {
         self.parse_expression(0)
     }
@@ -154,7 +121,7 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
                     None
                 };
 
-                let end = el.as_ref().map(|e| e.span.end).unwrap_or(th.span.end);
+                let end = el.as_ref().map_or(th.span.end, |e| e.span.end);
 
                 Expr::If {
                     cond: Box::new(cond),
@@ -239,7 +206,7 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
                 Expr::Block { exprs, trailing }.spanned(start..end)
             }
             token => {
-                return Err(ParseError::UnexpectedToken(
+                return Err(ParseTokenError::Unexpected(
                     token,
                     Some("start of expression".into()),
                 ));
@@ -303,18 +270,18 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
                     }.spanned(start..end);
                     continue;
                 }
-                TokenType::Eof => break,
-                TokenType::Else
-                | TokenType::RParen // Delimiters
+                TokenType::Eof
+                | TokenType::RParen
                 | TokenType::RBrace
                 | TokenType::RBracket
                 | TokenType::Comma
                 | TokenType::Semicolon
+                | TokenType::Else
                 | TokenType::Fn
                 | TokenType::Const
                 | TokenType::Struct
                 | TokenType::Enum => break,
-                token => return Err(ParseError::UnexpectedToken(token, Some("end of expression".into()))),
+                token => return Err(ParseTokenError::Unexpected(token, Some("end of expression".into()))),
             };
 
             let (left_binding_power, right_binding_power) = op.binding_power();

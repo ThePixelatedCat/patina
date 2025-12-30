@@ -9,33 +9,33 @@ use crate::lexer::{Lexer, Token, TokenType};
 use std::{error::Error, fmt::Display, iter::Peekable};
 
 #[derive(Debug)]
-pub enum ParseError {
-    MismatchedToken {
+pub enum ParseTokenError {
+    Mismatched {
         expected: TokenType,
         found: TokenType,
     },
-    UnexpectedToken(TokenType, Option<String>),
-    MissingToken,
+    Unexpected(TokenType, Option<String>),
+    Missing,
 }
 
-impl Display for ParseError {
+impl Display for ParseTokenError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ParseError::MismatchedToken { expected, found } => {
+            Self::Mismatched { expected, found } => {
                 write!(f, "expected token {expected}, found token {found}")
             }
-            ParseError::UnexpectedToken(token, Some(desc)) => {
+            Self::Unexpected(token, Some(desc)) => {
                 write!(f, "unexpected token `{token}` at {desc}")
             }
-            ParseError::UnexpectedToken(token, None) => write!(f, "unexpected token `{token:?}`"),
-            ParseError::MissingToken => "expected another token".fmt(f),
+            Self::Unexpected(token, None) => write!(f, "unexpected token `{token:?}`"),
+            Self::Missing => "expected another token".fmt(f),
         }
     }
 }
 
-impl Error for ParseError {}
+impl Error for ParseTokenError {}
 
-type ParseResult<T> = Result<T, ParseError>;
+type ParseResult<T> = Result<T, ParseTokenError>;
 
 pub struct Parser<'input, I>
 where
@@ -46,7 +46,7 @@ where
 }
 
 impl<'input> Parser<'input, Lexer<'input>> {
-    pub fn new(input: &'input str) -> Parser<'input, Lexer<'input>> {
+    pub fn new(input: &'input str) -> Self {
         Parser {
             input,
             tokens: Lexer::new(input).peekable(),
@@ -54,13 +54,12 @@ impl<'input> Parser<'input, Lexer<'input>> {
     }
 }
 
-impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
+impl<I: Iterator<Item = Token>> Parser<'_, I> {
     /// Look-ahead one token and see what kind of token it is.
     pub(crate) fn peek(&mut self) -> TokenType {
         self.tokens
             .peek()
-            .map(|token| token.inner)
-            .unwrap_or(TokenType::Eof)
+            .map_or(TokenType::Eof, |token| token.inner)
     }
 
     /// Check if the next token is the same variant as another token.
@@ -84,11 +83,11 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
     /// Move forward one token in the input and check
     /// that we pass the kind of token we expect.
     pub(crate) fn consume(&mut self, expected: TokenType) -> ParseResult<Token> {
-        let next = self.next().ok_or(ParseError::MissingToken)?;
+        let next = self.next().ok_or(ParseTokenError::Missing)?;
         if next.inner == expected {
             Ok(next)
         } else {
-            Err(ParseError::MismatchedToken {
+            Err(ParseTokenError::Mismatched {
                 expected,
                 found: next.inner,
             })
