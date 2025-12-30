@@ -30,7 +30,6 @@ impl PrefixOperator for Unop {
 impl InfixOperator for Bop {
     fn binding_power(&self) -> (u8, u8) {
         match self {
-            Bop::Assign => (1, 2),
             Bop::Or => (3, 4),
             Bop::And => (5, 6),
             Bop::Eqq | Bop::Neq => (7, 8),
@@ -126,7 +125,15 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
 
                 let ident = self.input[range].to_string();
 
-                Expr::Ident(ident).spanned(token.span)
+                if self.consume_at(TokenType::Eq) {
+                    let val = self.expression()?;
+
+                    let end = val.span.end;
+
+                    Expr::Assign { name: ident, value: val.into() }.spanned(token.span.start..end)
+                } else {
+                    Expr::Ident(ident).spanned(token.span)
+                }                
             }
             TokenType::If => {
                 let start = self.next().unwrap().span.start;
@@ -236,7 +243,6 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
         };
         loop {
             let op = match self.peek() {
-                TokenType::Eq => Bop::Assign,
                 TokenType::Plus => Bop::Add,
                 TokenType::Minus => Bop::Sub,
                 TokenType::Times => Bop::Mul,

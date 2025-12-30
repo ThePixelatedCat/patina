@@ -2,8 +2,8 @@ mod ast;
 mod expressions;
 mod helpers;
 mod items;
-// #[cfg(test)]
-// mod test;
+#[cfg(test)]
+mod test;
 
 use crate::lexer::{Lexer, Token, TokenType};
 use std::{error::Error, fmt::Display, iter::Peekable};

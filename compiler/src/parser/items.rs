@@ -25,7 +25,7 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
             TokenType::Const => {
                 let start = self.next().unwrap().span.start;
 
-                let (ident, _) = self.ident()?;
+                let (name, _) = self.ident()?;
 
                 self.consume(TokenType::Colon)?;
                 let ty = self.type_()?;
@@ -35,7 +35,7 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
 
                 let end = value.span.end;
 
-                Item::Const { ident, ty, value }.spanned(start..end)
+                Item::Const { name, ty, value }.spanned(start..end)
             }
             TokenType::Fn => {
                 let start = self.next().unwrap().span.start;

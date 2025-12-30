@@ -2,20 +2,22 @@ use std::ops::Range;
 
 use crate::{
     lexer::{Token, TokenType},
-    parser::ast::TypeS,
     span::{Span, Spannable},
 };
 
 use super::{
     ParseError, ParseResult, Parser,
-    ast::{Binding, Type},
+    ast::{Binding, Type, BindingS, TypeS},
 };
 
 impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
-    pub fn binding(&mut self) -> ParseResult<Binding> {
-        let mutable = self.consume_at(TokenType::Mut);
+    pub fn binding(&mut self) -> ParseResult<BindingS> {
+        let mutable = self.at(TokenType::Mut);
+        let mut_start = mutable.then(|| self.next().unwrap().span.start);
 
-        let (name, _) = self.ident()?;
+        let (name, name_span) = self.ident()?;
+
+        let start = mut_start.unwrap_or(name_span.start);
 
         let type_annotation = if self.consume_at(TokenType::Colon) {
             Some(self.type_()?)
@@ -23,11 +25,13 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
             None
         };
 
+        let end = type_annotation.as_ref().map_or(name_span.end, |ty| ty.span.end);
+
         Ok(Binding {
             mutable,
             name,
             type_annotation,
-        })
+        }.spanned(start..end))
     }
 
     pub fn type_(&mut self) -> ParseResult<TypeS> {

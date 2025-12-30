@@ -13,13 +13,13 @@ span! {Item as ItemS}
 #[derive(Debug, Clone, PartialEq)]
 pub enum Item {
     Const {
-        ident: String,
+        name: String,
         ty: TypeS,
         value: ExprS,
     },
     Function {
         name: String,
-        params: Vec<Binding>,
+        params: Vec<BindingS>,
         return_type: Option<TypeS>,
         body: ExprS,
     },
@@ -52,6 +52,7 @@ pub struct Field {
     pub ty: TypeS,
 }
 
+span!{Binding as BindingS}
 #[derive(Debug, Clone, PartialEq)]
 pub struct Binding {
     pub mutable: bool,
@@ -112,11 +113,15 @@ pub enum Expr {
         el: Option<Box<ExprS>>,
     },
     Let {
-        binding: Binding,
+        binding: BindingS,
+        value: Box<ExprS>,
+    },
+    Assign {
+        name: String,
         value: Box<ExprS>,
     },
     Lambda {
-        params: Vec<Binding>,
+        params: Vec<BindingS>,
         return_type: Option<TypeS>,
         body: Box<ExprS>,
     },
@@ -144,7 +149,6 @@ pub enum Bop {
     Neq,
     Geq,
     Leq,
-    Assign,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
