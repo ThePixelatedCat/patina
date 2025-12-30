@@ -5,8 +5,6 @@ mod token;
 
 pub use token::{Token, TokenType};
 
-use crate::span::Spannable;
-
 pub struct Lexer<'input> {
     input: &'input str,
     pos: usize,
@@ -36,10 +34,6 @@ impl<'input> Lexer<'input> {
             pos: 0,
             eof: false,
         }
-    }
-
-    pub fn tokenize(&mut self) -> Vec<Token> {
-        self.collect()
     }
 
     pub fn next_token(&mut self, input: &str) -> Token {

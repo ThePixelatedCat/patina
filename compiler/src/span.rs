@@ -1,19 +1,22 @@
 use std::ops::Range;
 
-pub trait Spannable
-where
-    Self: Sized,
-{
-    fn spanned(self, span: impl Into<Span>) -> Spanned<Self> {
-        Spanned {
-            inner: self,
-            span: span.into(),
+#[macro_export]
+macro_rules! span {
+    ($t:ident as $s:ident) => {
+        pub type $s = crate::span::Spanned<$t>;
+        impl $t {
+            pub fn spanned(self, span: impl Into<crate::span::Span>) -> crate::span::Spanned<Self> {
+                crate::span::Spanned {
+                    inner: self,
+                    span: span.into(),
+                }
+            }
         }
-    }
+    };
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Spanned<T: Spannable> {
+pub struct Spanned<T> {
     pub inner: T,
     pub span: Span,
 }

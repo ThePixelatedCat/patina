@@ -1,8 +1,14 @@
-use crate::lexer::{Token, TokenType};
+use std::ops::Range;
+
+use crate::{
+    lexer::{Token, TokenType},
+    parser::ast::FieldS,
+    span::Span,
+};
 
 use super::{
     ParseError, ParseResult, Parser,
-    ast::{Ast, Field, Item, Variant},
+    ast::{Ast, Field, Item, ItemS, Variant},
 };
 
 impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
@@ -14,12 +20,12 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
         Ok(items)
     }
 
-    pub fn item(&mut self) -> ParseResult<Item> {
+    pub fn item(&mut self) -> ParseResult<ItemS> {
         Ok(match self.peek() {
             TokenType::Const => {
-                self.next();
+                let start = self.next().unwrap().span.start;
 
-                let ident = self.ident()?;
+                let (name, _) = self.ident()?;
 
                 self.consume(TokenType::Colon)?;
                 let ty = self.type_()?;
@@ -27,14 +33,16 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
                 self.consume(TokenType::Eq)?;
                 let value = self.expression()?;
 
-                Item::Const { ident, ty, value }
+                let end = value.span.end;
+
+                Item::Const { name, ty, value }.spanned(start..end)
             }
             TokenType::Fn => {
-                self.next();
+                let start = self.next().unwrap().span.start;
 
-                let name = self.ident()?;
+                let (name, _) = self.ident()?;
 
-                let params =
+                let (params, _) =
                     self.delimited_list(Self::binding, TokenType::LParen, TokenType::RParen)?;
 
                 let return_type = if self.consume_at(TokenType::Colon) {
@@ -47,49 +55,62 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
 
                 let body = self.expression()?;
 
+                let end = body.span.end;
+
                 Item::Function {
                     name,
                     params,
                     return_type,
                     body,
                 }
+                .spanned(start..end)
             }
             TokenType::Struct => {
-                self.next();
+                let start = self.next().unwrap().span.start;
 
                 let (name, generic_params) = self.type_name()?;
+
+                let (fields, span) = self.fields()?;
+                let end = span.end;
 
                 Item::Struct {
                     name,
                     generic_params,
-                    fields: self.fields()?,
+                    fields,
                 }
+                .spanned(start..end)
             }
             TokenType::Enum => {
-                self.next();
+                let start = self.next().unwrap().span.start;
 
                 let (name, generic_params) = self.type_name()?;
 
-                let variants = self.delimited_list(
+                let (variants, variants_span) = self.delimited_list(
                     |this| {
-                        let variant_name = this.ident()?;
+                        let (variant_name, name_span) = this.ident()?;
+                        let start = name_span.start;
 
                         Ok(match this.peek() {
-                            TokenType::LBrace => Variant::Struct(variant_name, this.fields()?),
-                            TokenType::LParen => Variant::Tuple(
-                                variant_name,
-                                this.delimited_list(
+                            TokenType::LBrace => {
+                                let (fields, fields_span) = this.fields()?;
+                                Variant::Struct(variant_name, fields)
+                                    .spanned(start..fields_span.end)
+                            }
+                            TokenType::LParen => {
+                                let (vals, span) = this.delimited_list(
                                     Self::type_,
                                     TokenType::LParen,
                                     TokenType::RParen,
-                                )?,
-                            ),
-                            TokenType::Comma => Variant::Unit(variant_name),
+                                )?;
+
+                                Variant::Tuple(variant_name, vals).spanned(start..span.end)
+                            }
+                            TokenType::Comma => Variant::Unit(variant_name).spanned(name_span),
                             token => {
-                                return Err(ParseError::MismatchedToken {
-                                    expected: "one of `,` `(` `{`".into(),
-                                    found: token.to_string(),
-                                });
+                                return Err(ParseError::UnexpectedToken(
+                                    token,
+                                    Some("after variant name. expected one of `,` `(` `{`".into()),
+                                ));
                             }
                         })
                     },
@@ -102,10 +123,11 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
                     generic_params,
                     variants,
                 }
+                .spanned(start..variants_span.end)
             }
             token => {
                 return Err(ParseError::UnexpectedToken(
-                    token.to_string(),
+                    token,
                     Some("start of item".into()),
                 ));
             }
@@ -113,10 +135,15 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
     }
 
     fn type_name(&mut self) -> ParseResult<(String, Vec<String>)> {
-        let name = self.ident()?;
+        let (name, _) = self.ident()?;
 
         let generic_params = if self.at(TokenType::LAngle) {
-            self.delimited_list(Self::ident, TokenType::LAngle, TokenType::RAngle)?
+            self.delimited_list(
+                |this| this.ident().map(|v| v.0),
+                TokenType::LAngle,
+                TokenType::RAngle,
+            )?
+            .0
         } else {
             Vec::new()
         };
@@ -124,15 +151,29 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
         Ok((name, generic_params))
     }
 
-    fn fields(&mut self) -> ParseResult<Vec<Field>> {
+    fn fields(&mut self) -> ParseResult<(Vec<FieldS>, Span)> {
         self.delimited_list(
             |this| {
-                let name = this.ident()?;
+                let (name, start) = match this.peek() {
+                    TokenType::Ident => {
+                        let span = this.next().unwrap().span;
+
+                        (this.input[Range::from(span)].to_string(), span.start)
+                    }
+                    other_type => {
+                        return Err(ParseError::MismatchedToken {
+                            expected: TokenType::Ident,
+                            found: other_type,
+                        });
+                    }
+                };
 
                 this.consume(TokenType::Colon)?;
-                let ty = this.type_()?;
 
-                Ok(Field { name, ty })
+                let ty = this.type_()?;
+                let end = ty.span.end;
+
+                Ok(Field { name, ty }.spanned(start..end))
             },
             TokenType::LBrace,
             TokenType::RBrace,

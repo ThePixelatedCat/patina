@@ -46,7 +46,7 @@ where
 }
 
 impl<'input> Parser<'input, Lexer<'input>> {
-    pub fn new(input: &'input str) -> Parser<Lexer<'input>> {
+    pub fn new(input: &'input str) -> Parser<'input, Lexer<'input>> {
         Parser {
             input,
             tokens: Lexer::new(input).peekable(),

@@ -1,76 +1,80 @@
-use crate::span::{Spannable, Spanned};
+use crate::span;
 
 pub type Ast = Vec<ItemS>;
 
-pub type ItemS = Spanned<Item>;
-impl Spannable for Item {}
+span! {Item as ItemS}
 #[derive(Debug, Clone, PartialEq)]
 pub enum Item {
     Const {
-        ident: String,
+        name: String,
         ty: TypeS,
-        value: Expr,
+        value: ExprS,
     },
     Function {
         name: String,
-        params: Vec<Binding>,
+        params: Vec<BindingS>,
         return_type: Option<TypeS>,
-        body: Expr,
+        body: ExprS,
     },
     Struct {
         name: String,
         generic_params: Vec<String>,
-        fields: Vec<Field>,
+        fields: Vec<FieldS>,
     },
     Enum {
         name: String,
         generic_params: Vec<String>,
-        variants: Vec<Variant>,
+        variants: Vec<VariantS>,
     },
 }
 
+span! {Variant as VariantS}
 #[derive(Debug, Clone, PartialEq)]
 pub enum Variant {
     Unit(String),
     Tuple(String, Vec<TypeS>),
-    Struct(String, Vec<Field>),
+    Struct(String, Vec<FieldS>),
 }
 
+// pub type FieldS = Spanned<Field>;
+// impl Spannable for Field {}
+span! {Field as FieldS}
 #[derive(Debug, Clone, PartialEq)]
 pub struct Field {
     pub name: String,
     pub ty: TypeS,
 }
 
+span! {Binding as BindingS}
 #[derive(Debug, Clone, PartialEq)]
-pub struct Binding {
-    pub mutable: bool,
-    pub name: String,
-    pub type_annotation: Option<TypeS>,
+pub enum Binding {
+    Var {
+        mutable: bool,
+        ident: String,
+        type_annotation: Option<TypeS>,
+    },
 }
 
-pub type TypeS = Spanned<Type>;
-impl Spannable for Type {}
+span! {Type as TypeS}
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
-    Ident {
+    Named {
         name: String,
-        generics: Vec<Type>,
+        generics: Vec<TypeS>,
     },
-    Array(Box<Type>),
-    Tuple(Vec<Type>),
+    Array(Box<TypeS>),
+    Tuple(Vec<TypeS>),
     Fn {
-        params: Vec<Type>,
-        result: Box<Type>,
+        params: Vec<TypeS>,
+        result: Box<TypeS>,
     },
 }
 
-pub type ExprS = Spanned<Expr>;
-impl Spannable for Expr {}
+span! {Expr as ExprS}
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Ident(String),
-    Int(i64),
+    Int(u64),
     Float(f64),
     Str(String),
     Char(char),
@@ -104,11 +108,15 @@ pub enum Expr {
         el: Option<Box<ExprS>>,
     },
     Let {
-        binding: Binding,
+        binding: BindingS,
+        value: Box<ExprS>,
+    },
+    Assign {
+        ident: String,
         value: Box<ExprS>,
     },
     Lambda {
-        params: Vec<Binding>,
+        params: Vec<BindingS>,
         return_type: Option<TypeS>,
         body: Box<ExprS>,
     },
@@ -136,7 +144,6 @@ pub enum Bop {
     Neq,
     Geq,
     Leq,
-    Assign,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

@@ -1,7 +1,5 @@
-use crate::span::{Spannable, Spanned};
+use crate::span;
 use std::fmt::Display;
-
-pub type Token = Spanned<TokenType>;
 
 impl Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -13,6 +11,7 @@ impl Display for Token {
     }
 }
 
+span! {TokenType as Token}
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum TokenType {
     // Literals
@@ -71,8 +70,6 @@ pub enum TokenType {
     Error,
     Eof,
 }
-
-impl Spannable for TokenType {}
 
 impl Display for TokenType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

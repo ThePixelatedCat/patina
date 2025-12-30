@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use crate::{
     lexer::{Token, TokenType},
     span::Span,
@@ -5,14 +7,17 @@ use crate::{
 
 use super::{
     ParseError, ParseResult, Parser,
-    ast::{Binding, Type},
+    ast::{Binding, BindingS, Type, TypeS},
 };
 
 impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
-    pub fn binding(&mut self) -> ParseResult<Binding> {
-        let mutable = self.consume_at(TokenType::Mut);
+    pub fn binding(&mut self) -> ParseResult<BindingS> {
+        let mutable = self.at(TokenType::Mut);
+        let mut_start = mutable.then(|| self.next().unwrap().span.start);
 
-        let name = self.ident()?;
+        let (name, name_span) = self.ident()?;
+
+        let start = mut_start.unwrap_or(name_span.start);
 
         let type_annotation = if self.consume_at(TokenType::Colon) {
             Some(self.type_()?)
@@ -20,73 +25,82 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
             None
         };
 
-        Ok(Binding {
+        let end = type_annotation
+            .as_ref()
+            .map_or(name_span.end, |ty| ty.span.end);
+
+        Ok(Binding::Var {
             mutable,
-            name,
+            ident: name,
             type_annotation,
-        })
+        }
+        .spanned(start..end))
     }
 
-    pub fn type_(&mut self) -> ParseResult<Type> {
+    pub fn type_(&mut self) -> ParseResult<TypeS> {
         Ok(match self.peek() {
-            TokenType::Ident(_) => {
-                let Some(Token {
-                    ty: TokenType::Ident(name),
-                    ..
-                }) = self.next()
-                else {
-                    unreachable!()
-                };
+            TokenType::Ident => {
+                let span = self.next().unwrap().span;
+                let name = self.input[Range::from(span)].to_string();
 
-                let generics = if self.at(TokenType::LAngle) {
-                    self.delimited_list(Self::type_, TokenType::LAngle, TokenType::RAngle)?
+                let start = span.start;
+
+                let (generics, end) = if self.at(TokenType::LAngle) {
+                    let (generics, generics_span) =
+                        self.delimited_list(Self::type_, TokenType::LAngle, TokenType::RAngle)?;
+                    (generics, generics_span.end)
                 } else {
-                    Vec::new()
+                    (Vec::new(), span.end)
                 };
 
-                Type::Ident { name, generics }
+                Type::Named { name, generics }.spanned(start..end)
             }
             TokenType::LBracket => {
-                self.next();
+                let start = self.next().unwrap().span.start;
+
                 let inner_type = self.type_()?;
-                self.consume(TokenType::RBracket)?;
-                Type::Array(Box::new(inner_type))
+
+                let end = self.consume(TokenType::RBracket)?.span.end;
+
+                Type::Array(Box::new(inner_type)).spanned(start..end)
             }
-            TokenType::LParen => Type::Tuple(self.delimited_list(
-                Self::type_,
-                TokenType::LParen,
-                TokenType::RParen,
-            )?),
-            TokenType::Fn => {
-                self.next();
-                let params =
+            TokenType::LParen => {
+                let (types, span) =
                     self.delimited_list(Self::type_, TokenType::LParen, TokenType::RParen)?;
+                Type::Tuple(types).spanned(span)
+            }
+            TokenType::Fn => {
+                let start = self.next().unwrap().span.start;
+
+                let (params, _) =
+                    self.delimited_list(Self::type_, TokenType::LParen, TokenType::RParen)?;
+
                 self.consume(TokenType::Colon)?;
                 let result = Box::new(self.type_()?);
-                Type::Fn { params, result }
+
+                let end = result.span.end;
+
+                Type::Fn { params, result }.spanned(start..end)
             }
             token => {
                 return Err(ParseError::UnexpectedToken(
-                    token.to_string(),
+                    token,
                     Some("start of type name".into()),
                 ));
             }
         })
     }
 
-    pub fn ident(&mut self) -> ParseResult<String> {
-        match self.next() {
-            Some(Token {
-                ty: TokenType::Ident(name),
-                ..
-            }) => Ok(name),
-            Some(token) => Err(ParseError::MismatchedToken {
-                expected: TokenType::Ident(String::new()).to_string(),
-                found: token.to_string(),
-            }),
-            None => Err(ParseError::MismatchedToken {
-                expected: TokenType::Ident(String::new()).to_string(),
-                found: TokenType::Eof.to_string(),
+    pub fn ident(&mut self) -> ParseResult<(String, Span)> {
+        match self.peek() {
+            TokenType::Ident => {
+                let span = self.next().unwrap().span;
+
+                Ok((self.input[Range::from(span)].to_string(), span))
+            }
+            other_type => Err(ParseError::MismatchedToken {
+                expected: TokenType::Ident,
+                found: other_type,
             }),
         }
     }

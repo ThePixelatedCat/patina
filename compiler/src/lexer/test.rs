@@ -1,6 +1,4 @@
-use crate::span::Spannable;
-
-use super::{Lexer, TokenType as T};
+use super::{Lexer, Token, TokenType as T};
 
 macro_rules! count {
     () => (0usize);
@@ -21,10 +19,14 @@ macro_rules! assert_tokens {
     };
 }
 
+fn tokenize(lexer: &mut Lexer<'_>) -> Vec<Token> {
+    lexer.collect()
+}
+
 #[test]
 fn single_char_tokens() {
     let mut lexer = Lexer::new("+-(.):");
-    let tokens = lexer.tokenize();
+    let tokens = tokenize(&mut lexer);
     assert_tokens!(
         tokens,
         [
@@ -42,7 +44,7 @@ fn single_char_tokens() {
 #[test]
 fn unknown_input() {
     let mut lexer = Lexer::new("{$$$$$$$+");
-    let tokens = lexer.tokenize();
+    let tokens = tokenize(&mut lexer);
     assert_tokens!(
         tokens,
         [
@@ -57,7 +59,7 @@ fn unknown_input() {
 #[test]
 fn single_char_tokens_with_whitespace() {
     let mut lexer = Lexer::new("   + -  (.): ");
-    let tokens = lexer.tokenize();
+    let tokens = tokenize(&mut lexer);
     assert_tokens!(
         tokens,
         [
@@ -75,7 +77,7 @@ fn single_char_tokens_with_whitespace() {
 #[test]
 fn maybe_multiple_char_tokens() {
     let mut lexer = Lexer::new("&&=<=_!=||**->");
-    let tokens = lexer.tokenize();
+    let tokens = tokenize(&mut lexer);
     assert_tokens!(
         tokens,
         [
@@ -95,7 +97,7 @@ fn maybe_multiple_char_tokens() {
 #[test]
 fn keywords() {
     let mut lexer = Lexer::new("if struct mut let enum = match else fn");
-    let tokens: Vec<_> = lexer.tokenize();
+    let tokens: Vec<_> = tokenize(&mut lexer);
     assert_tokens!(
         tokens,
         [
@@ -116,7 +118,7 @@ fn keywords() {
 #[test]
 fn comment() {
     let mut lexer = Lexer::new("//hello, world!\nif let");
-    let tokens: Vec<_> = lexer.tokenize();
+    let tokens: Vec<_> = tokenize(&mut lexer);
     assert_tokens!(
         tokens,
         [
@@ -130,7 +132,7 @@ fn comment() {
 #[test]
 fn literals() {
     let mut lexer = Lexer::new(r#"1 .5 0.211 1. true "test"'\n'"#);
-    let tokens: Vec<_> = lexer.tokenize();
+    let tokens: Vec<_> = tokenize(&mut lexer);
     assert_tokens!(
         tokens,
         [
@@ -161,7 +163,7 @@ fn function() {
         }
     "#;
     let mut lexer = Lexer::new(&input);
-    let tokens = lexer.tokenize();
+    let tokens = tokenize(&mut lexer);
     assert_tokens!(
         tokens,
         [
