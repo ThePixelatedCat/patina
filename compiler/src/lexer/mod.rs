@@ -36,10 +36,6 @@ impl<'input> Lexer<'input> {
         }
     }
 
-    pub fn tokenize(&mut self) -> Vec<Token> {
-        self.collect()
-    }
-
     pub fn next_token(&mut self, input: &str) -> Token {
         self.valid_token(input)
             .unwrap_or_else(|| self.invalid_token(input))

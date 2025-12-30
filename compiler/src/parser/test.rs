@@ -796,17 +796,18 @@ fn parse_file() {
                                 generics: vec![Type::Named {
                                     name: "T".into(),
                                     generics: vec![],
-                                }],
-                            },
+                                }.spanned(368..369)],
+                            }.spanned(364..370),
                             Type::Array(
                                 Type::Named {
                                     name: "U".into(),
                                     generics: vec![],
                                 }
+                                .spanned(373..374)
                                 .into()
-                            )
+                            ).spanned(372..375)
                         ],
-                    },
+                    }.spanned(360..376),
                 }.spanned(355..376)
             ]
         }.spanned(304..387)
