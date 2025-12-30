@@ -1,11 +1,4 @@
-macro_rules! span {
-    ($t:ident as $s:ident) => {
-        pub type $s = Spanned<$t>;
-        impl Spannable for $t {}
-    };
-}
-
-use crate::span::{Spannable, Spanned};
+use crate::span;
 
 pub type Ast = Vec<ItemS>;
 
@@ -35,7 +28,7 @@ pub enum Item {
     },
 }
 
-span!(Variant as VariantS);
+span! {Variant as VariantS}
 #[derive(Debug, Clone, PartialEq)]
 pub enum Variant {
     Unit(String),
@@ -52,18 +45,20 @@ pub struct Field {
     pub ty: TypeS,
 }
 
-span!{Binding as BindingS}
+span! {Binding as BindingS}
 #[derive(Debug, Clone, PartialEq)]
-pub struct Binding {
-    pub mutable: bool,
-    pub name: String,
-    pub type_annotation: Option<TypeS>,
+pub enum Binding {
+    Var {
+        mutable: bool,
+        ident: String,
+        type_annotation: Option<TypeS>,
+    },
 }
 
 span! {Type as TypeS}
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
-    Ident {
+    Named {
         name: String,
         generics: Vec<TypeS>,
     },
@@ -117,7 +112,7 @@ pub enum Expr {
         value: Box<ExprS>,
     },
     Assign {
-        name: String,
+        ident: String,
         value: Box<ExprS>,
     },
     Lambda {

@@ -3,7 +3,7 @@ use std::{ops::Range, str::FromStr};
 use crate::{
     lexer::{Token, TokenType},
     parser::ast::ExprS,
-    span::{Span, Spannable},
+    span::Span,
 };
 
 use super::{
@@ -130,10 +130,14 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
 
                     let end = val.span.end;
 
-                    Expr::Assign { name: ident, value: val.into() }.spanned(token.span.start..end)
+                    Expr::Assign {
+                        ident,
+                        value: val.into(),
+                    }
+                    .spanned(token.span.start..end)
                 } else {
                     Expr::Ident(ident).spanned(token.span)
-                }                
+                }
             }
             TokenType::If => {
                 let start = self.next().unwrap().span.start;

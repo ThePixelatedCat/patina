@@ -5,8 +5,6 @@ mod token;
 
 pub use token::{Token, TokenType};
 
-use crate::span::Spannable;
-
 pub struct Lexer<'input> {
     input: &'input str,
     pos: usize,

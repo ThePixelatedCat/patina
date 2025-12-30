@@ -2,12 +2,12 @@ use std::ops::Range;
 
 use crate::{
     lexer::{Token, TokenType},
-    span::{Span, Spannable},
+    span::Span,
 };
 
 use super::{
     ParseError, ParseResult, Parser,
-    ast::{Binding, Type, BindingS, TypeS},
+    ast::{Binding, BindingS, Type, TypeS},
 };
 
 impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
@@ -25,13 +25,16 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
             None
         };
 
-        let end = type_annotation.as_ref().map_or(name_span.end, |ty| ty.span.end);
+        let end = type_annotation
+            .as_ref()
+            .map_or(name_span.end, |ty| ty.span.end);
 
-        Ok(Binding {
+        Ok(Binding::Var {
             mutable,
-            name,
+            ident: name,
             type_annotation,
-        }.spanned(start..end))
+        }
+        .spanned(start..end))
     }
 
     pub fn type_(&mut self) -> ParseResult<TypeS> {
@@ -50,7 +53,7 @@ impl<'input, I: Iterator<Item = Token>> Parser<'input, I> {
                     (Vec::new(), span.end)
                 };
 
-                Type::Ident { name, generics }.spanned(start..end)
+                Type::Named { name, generics }.spanned(start..end)
             }
             TokenType::LBracket => {
                 let start = self.next().unwrap().span.start;

@@ -3,7 +3,7 @@ use std::ops::Range;
 use crate::{
     lexer::{Token, TokenType},
     parser::ast::FieldS,
-    span::{Span, Spannable},
+    span::Span,
 };
 
 use super::{

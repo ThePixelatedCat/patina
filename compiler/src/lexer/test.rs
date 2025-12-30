@@ -1,5 +1,3 @@
-use crate::span::Spannable;
-
 use super::{Lexer, TokenType as T};
 
 macro_rules! count {
