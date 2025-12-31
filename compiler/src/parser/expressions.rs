@@ -16,6 +16,7 @@ impl<I: Iterator<Item = Token>> Parser<'_, I> {
         self.parse_expression(0)
     }
 
+    #[allow(clippy::too_many_lines, reason = "still readable and segmented via the match")]
     fn parse_expression(&mut self, binding_power: u8) -> ParseResult<ExprS> {
         let mut lhs = match self.peek() {
             TokenType::LParen => {
