@@ -6,7 +6,7 @@ use crate::{
 };
 
 use super::{
-    ParseTokenError, ParseResult, Parser,
+    ParseResult, ParseTokenError, Parser,
     ast::{Binding, BindingS, Type, TypeS},
 };
 

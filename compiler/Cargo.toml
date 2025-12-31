@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0.100"
 regex = "1.12.2"
-lazy_static = "1.5.0"
 
 [lints.clippy]
 enum_glob_use = "deny"

@@ -7,7 +7,7 @@ use crate::{
 };
 
 use super::{
-    ParseTokenError, ParseResult, Parser,
+    ParseResult, ParseTokenError, Parser,
     ast::{Ast, Field, Item, ItemS, Variant},
 };
 

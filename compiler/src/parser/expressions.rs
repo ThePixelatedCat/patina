@@ -7,7 +7,7 @@ use crate::{
 };
 
 use super::{
-    ParseTokenError, ParseResult, Parser,
+    ParseResult, ParseTokenError, Parser,
     ast::{Bop, Expr, Unop},
 };
 
@@ -240,8 +240,9 @@ impl<I: Iterator<Item = Token>> Parser<'_, I> {
 
                     lhs = Expr::Index {
                         arr: Box::new(lhs),
-                        index
-                    }.spanned(start..end);
+                        index,
+                    }
+                    .spanned(start..end);
                     continue;
                 }
                 TokenType::Dot => {
@@ -254,20 +255,25 @@ impl<I: Iterator<Item = Token>> Parser<'_, I> {
 
                     lhs = Expr::FieldAccess {
                         base: Box::new(lhs),
-                        field
-                    }.spanned(start..end);
+                        field,
+                    }
+                    .spanned(start..end);
                     continue;
                 }
                 TokenType::LParen => {
                     let start = lhs.span.start;
 
-                    let (args, Span { end, .. }) =
-                        self.delimited_list(Self::expression, TokenType::LParen, TokenType::RParen)?;
+                    let (args, Span { end, .. }) = self.delimited_list(
+                        Self::expression,
+                        TokenType::LParen,
+                        TokenType::RParen,
+                    )?;
 
                     lhs = Expr::FnCall {
                         fun: Box::new(lhs),
                         args,
-                    }.spanned(start..end);
+                    }
+                    .spanned(start..end);
                     continue;
                 }
                 TokenType::Eof
@@ -281,7 +287,12 @@ impl<I: Iterator<Item = Token>> Parser<'_, I> {
                 | TokenType::Const
                 | TokenType::Struct
                 | TokenType::Enum => break,
-                token => return Err(ParseTokenError::Unexpected(token, Some("end of expression".into()))),
+                token => {
+                    return Err(ParseTokenError::Unexpected(
+                        token,
+                        Some("end of expression".into()),
+                    ));
+                }
             };
 
             let (left_binding_power, right_binding_power) = op.binding_power();

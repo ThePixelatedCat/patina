@@ -1,4 +1,5 @@
-use lazy_static::lazy_static;
+use std::sync::LazyLock;
+
 use regex::Regex;
 
 use super::TokenType;
@@ -28,14 +29,15 @@ fn match_regex(input: &str, r: &Regex) -> Option<usize> {
     r.find(input).map(|regex_match| regex_match.end())
 }
 
-lazy_static! {
-    static ref INT_REGEX: Regex = Regex::new(r"^\d+").unwrap();
-    static ref FLOAT_REGEX: Regex =
-        Regex::new(r"^((\d+\.(\d+)?)|(\.\d+))([Ee][\+-]?\d+)?").unwrap();
-    static ref STRING_REGEX: Regex = Regex::new(r#"^"((\\"|\\\\|\\n)|[^\\"])*""#).unwrap();
-    static ref CHAR_REGEX: Regex = Regex::new(r"^'((\\'|\\\\|\\n)|[^\\'])'").unwrap();
-    static ref IDENTIFIER_REGEX: Regex = Regex::new(r"^[A-Za-z_]([A-Za-z_]|\d)*").unwrap();
-}
+static INT_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\d+").unwrap());
+static FLOAT_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^((\d+\.(\d+)?)|(\.\d+))([Ee][\+-]?\d+)?").unwrap());
+static STRING_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#"^"((\\"|\\\\|\\n)|[^\\"])*""#).unwrap());
+static CHAR_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^'((\\'|\\\\|\\n)|[^\\'])'").unwrap());
+static IDENTIFIER_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^[A-Za-z_]([A-Za-z_]|\d)*").unwrap());
 
 pub(super) const RULES: [Rule; 47] = {
     use TokenType as T;

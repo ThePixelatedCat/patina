@@ -5,7 +5,10 @@ macro_rules! span {
     ($t:ident as $s:ident) => {
         pub type $s = $crate::span::Spanned<$t>;
         impl $t {
-            pub fn spanned(self, span: impl Into<$crate::span::Span>) -> $crate::span::Spanned<Self> {
+            pub fn spanned(
+                self,
+                span: impl Into<$crate::span::Span>,
+            ) -> $crate::span::Spanned<Self> {
                 $crate::span::Spanned {
                     inner: self,
                     span: span.into(),
