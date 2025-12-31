@@ -1,7 +1,7 @@
 use std::{ops::Range, str::FromStr};
 
 use crate::{
-    helpers::Span,
+    helpers::{Span, Spanned},
     lexer::{Token, TokenType},
     parser::ast::ExprS,
 };
@@ -102,7 +102,7 @@ impl<I: Iterator<Item = Token>> Parser<'_, I> {
                     let end = val.span.end;
 
                     Expr::Assign {
-                        ident,
+                        ident: Spanned { inner: ident, span: token.span},
                         value: val.into(),
                     }
                     .spanned(token.span.start..end)
@@ -259,7 +259,7 @@ impl<I: Iterator<Item = Token>> Parser<'_, I> {
 
                     lhs = Expr::FieldAccess {
                         base: Box::new(lhs),
-                        field,
+                        field: Spanned { inner: field, span: field_span },
                     }
                     .spanned(start..end);
                     continue;
