@@ -97,7 +97,7 @@ impl TypeChecker {
             Expr::FieldAccess { base, field } => todo!(),
             Expr::If { cond, th, el } => self.type_of_if(cond, th, el.as_deref(), &expr.span),
             Expr::Let { binding, value } => self.type_of_let(binding, value),
-            Expr::Assign { ident, value } => self.type_of_assign(ident, value),
+            Expr::Assign { ident, value } => self.type_of_assign(ident.as_deref(), value),
             Expr::Lambda {
                 params,
                 return_type,

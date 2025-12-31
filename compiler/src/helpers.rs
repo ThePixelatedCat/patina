@@ -1,4 +1,4 @@
-use std::{fmt::Display, ops::Range};
+use std::{fmt::Display, ops::{Deref, Range}};
 
 pub fn concat(items: &Vec<impl ToString>) -> String {
     items
@@ -30,6 +30,21 @@ macro_rules! span {
 pub struct Spanned<T> {
     pub inner: T,
     pub span: Span,
+}
+
+impl<'a, T> From<&'a Spanned<T>> for Spanned<&'a T> {
+    fn from(value: &'a Spanned<T>) -> Self {
+        Self { inner: &value.inner, span: value.span }
+    }
+}
+
+impl<T> Spanned<T> {
+    pub fn as_deref(&self) -> Spanned<&T::Target>
+    where
+        T: Deref,
+    {
+        Spanned { inner: self.inner.deref(), span: self.span }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
