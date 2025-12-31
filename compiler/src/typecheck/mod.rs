@@ -1,13 +1,15 @@
 mod error;
+mod types;
 
-use std::{collections::HashMap, fmt::Display, iter, slice};
+use std::{collections::HashMap, iter, slice};
 
 use crate::{
-    helpers::{Span, Spanned, concat},
-    parser::ast::{Ast, BindingS, Binding, Expr, ExprS, Item, Type as AstType, TypeS as AstTypeS, Unop},
+    helpers::{Span, Spanned},
+    parser::ast::{Ast, BindingS, Binding, Expr, ExprS, Unop},
 };
 
 use error::{TypeError, TypeResult};
+use types::Type;
 
 macro_rules! Unit {
     () => {
@@ -24,96 +26,15 @@ macro_rules! check_type {
     };
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Type {
-    Int,
-    UInt,
-    Byte,
-    Float,
-    Bool,
-    Str,
-    Char,
-    Array(Box<Type>),
-    Tuple(Vec<Type>),
-    Fn {
-        params: Vec<Type>,
-        result: Box<Type>,
-    },
-    Named {
-        name: String,
-        generics: Vec<Type>,
-    },
-    Never,
-}
-
-impl From<&AstType> for Type {
-    fn from(value: &AstType) -> Self {
-        match value {
-            AstType::Named { name, generics } => {
-                if generics.is_empty() {
-                    match name.as_str() {
-                        "Int" => return Self::Int,
-                        "UInt" => return Self::UInt,
-                        "Byte" => return Self::Byte,
-                        "Float" => return Self::Float,
-                        "Bool" => return Self::Bool,
-                        "Str" => return Self::Str,
-                        "Char" => return Self::Char,
-                        _ => (),
-                    }
-                }
-
-                Self::Named {
-                    name: name.to_owned(),
-                    generics: generics.iter().map(|t| t.into()).collect(),
-                }
-            }
-            AstType::Array(inner) => Self::Array(Box::new((&inner.inner).into())),
-            AstType::Tuple(inners) => {
-                Self::Tuple(inners.iter().map(|t| t.into()).collect())
-            }
-            AstType::Fn { params, result } => Self::Fn {
-                params: params.iter().map(|t| t.into()).collect(),
-                result: Box::new(result.as_ref().into()),
-            },
-        }
-    }
-}
-
-impl From<&AstTypeS> for Type {
-    fn from(value: &AstTypeS) -> Self {
-        (&value.inner).into()
-    }
-}
-
-impl Display for Type {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Type::Int => "Int".fmt(f),
-            Type::UInt => "UInt".fmt(f),
-            Type::Byte => "Byte".fmt(f),
-            Type::Float => "Float".fmt(f),
-            Type::Bool => "Bool".fmt(f),
-            Type::Str => "Str".fmt(f),
-            Type::Char => "Char".fmt(f),
-            Type::Array(inner) => write!(f, "[{inner}]"),
-            Type::Tuple(items) => write!(f, "({})", concat(items)),
-            Type::Fn { params, result } => write!(f, "fn({}): {result}", concat(params)),
-            Type::Named { name, generics } => {
-                if generics.is_empty() {
-                    write!(f, "{name}")
-                } else {
-                    write!(f, "{name}<{}>", concat(generics))
-                }
-            }
-            Type::Never => "!".fmt(f),
-        }
-    }
+#[derive(Clone)]
+pub struct BindingInfo {
+    ty: Type,
+    mutable: bool
 }
 
 #[derive(Clone)]
 pub struct TypeChecker {
-    env: HashMap<String, Type>,
+    env: HashMap<String, BindingInfo>,
 }
 
 impl TypeChecker {
@@ -161,7 +82,7 @@ impl TypeChecker {
 
     pub fn type_of(&mut self, expr: &ExprS) -> TypeResult {
         match &expr.inner {
-            Expr::Ident(ident) => self.type_of_ident(ident, &expr.span),
+            Expr::Ident(ident) => self.type_of_ident(Spanned { inner: ident, span: expr.span }),
             Expr::Int(_) => todo!(),
             Expr::Float(_) => Ok(Type::Float),
             Expr::Str(_) => Ok(Type::Str),
@@ -176,7 +97,7 @@ impl TypeChecker {
             Expr::FieldAccess { base, field } => todo!(),
             Expr::If { cond, th, el } => self.type_of_if(cond, th, el.as_deref(), &expr.span),
             Expr::Let { binding, value } => self.type_of_let(binding, value),
-            Expr::Assign { .. } => Ok(Unit!()),
+            Expr::Assign { ident, value } => self.type_of_assign(ident, value),
             Expr::Lambda {
                 params,
                 return_type,
@@ -186,11 +107,12 @@ impl TypeChecker {
         }
     }
 
-    fn type_of_ident(&self, ident: &str, span: &Span) -> TypeResult {
+    fn type_of_ident(&self, ident: Spanned<&str>) -> TypeResult {
         self.env
-            .get(ident)
+            .get(ident.inner)
             .cloned()
-            .ok_or_else(|| TypeError::UnboundIdent(ident.to_owned()).spanned(span))
+            .map(|i| i.ty)
+            .ok_or_else(|| TypeError::UnboundIdent(ident.inner.to_owned()).spanned(ident.span))
     }
 
     fn type_of_tuple(&mut self, vals: &[ExprS]) -> TypeResult {
@@ -299,7 +221,24 @@ impl TypeChecker {
             other => return other
         };
 
-        self.env.insert(ident.to_owned(), ty);
+        self.env.insert(ident.to_owned(), BindingInfo { ty, mutable: *mutable });
+
+        Ok(Unit!())
+    }
+
+    fn type_of_assign(&mut self, ident: Spanned<&str>, value: &ExprS) -> TypeResult {
+        let assigned_ty = self.type_of(value)?;
+
+        let info = self.env.get(ident.inner)
+            .ok_or_else(|| TypeError::UnboundIdent(ident.inner.to_owned()).spanned(ident.span))?;
+
+        if !info.mutable {
+            return Err(TypeError::Mutation(ident.inner.to_owned()).spanned(ident.span));
+        }
+
+        if info.ty != assigned_ty  {
+            return Err(TypeError::MismatchedTypes(assigned_ty, info.ty.clone()).spanned(value.span))
+        }
 
         Ok(Unit!())
     }

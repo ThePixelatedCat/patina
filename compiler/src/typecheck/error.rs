@@ -16,6 +16,7 @@ pub enum TypeError {
     MismatchedBranches(Type, Type),
     WrongArgCount(usize, usize),
     CantInfer(Vec<Type>),
+    Mutation(String)
 }
 
 impl Display for TypeErrorS {
@@ -48,6 +49,11 @@ impl Display for TypeErrorS {
                 self.span,
                 concat(options)
             ),
+            TypeError::Mutation(name) => write!(
+                f,
+                "attempted mutation of immutable variable {name} at {}",
+                self.span
+            )
         }
     }
 }
