@@ -1,12 +1,12 @@
 use std::ops::Range;
 
 use crate::{
+    helpers::Span,
     lexer::{Token, TokenType},
-    span::Span,
 };
 
 use super::{
-    ParseResult, ParseTokenError, Parser,
+    ParseError, ParseResult, Parser,
     ast::{Binding, BindingS, Type, TypeS},
 };
 
@@ -83,7 +83,7 @@ impl<I: Iterator<Item = Token>> Parser<'_, I> {
                 Type::Fn { params, result }.spanned(start..end)
             }
             token => {
-                return Err(ParseTokenError::Unexpected(
+                return Err(ParseError::Unexpected(
                     token,
                     Some("start of type name".into()),
                 ));
@@ -98,7 +98,7 @@ impl<I: Iterator<Item = Token>> Parser<'_, I> {
 
                 Ok((self.input[Range::from(span)].to_string(), span))
             }
-            other_type => Err(ParseTokenError::Mismatched {
+            other_type => Err(ParseError::Mismatched {
                 expected: TokenType::Ident,
                 found: other_type,
             }),

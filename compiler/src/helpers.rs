@@ -1,15 +1,23 @@
-use std::ops::Range;
+use std::{fmt::Display, ops::Range};
+
+pub fn concat(items: &Vec<impl ToString>) -> String {
+    items
+        .iter()
+        .map(|t| t.to_string())
+        .collect::<Vec<String>>()
+        .join(", ")
+}
 
 #[macro_export]
 macro_rules! span {
     ($t:ident as $s:ident) => {
-        pub type $s = $crate::span::Spanned<$t>;
+        pub type $s = $crate::helpers::Spanned<$t>;
         impl $t {
             pub fn spanned(
                 self,
-                span: impl Into<$crate::span::Span>,
-            ) -> $crate::span::Spanned<Self> {
-                $crate::span::Spanned {
+                span: impl Into<$crate::helpers::Span>,
+            ) -> $crate::helpers::Spanned<Self> {
+                $crate::helpers::Spanned {
                     inner: self,
                     span: span.into(),
                 }
@@ -42,5 +50,17 @@ impl From<Range<usize>> for Span {
 impl From<Span> for Range<usize> {
     fn from(value: Span) -> Self {
         value.start..value.end
+    }
+}
+
+impl From<&Self> for Span {
+    fn from(value: &Self) -> Self {
+        *value
+    }
+}
+
+impl Display for Span {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}..{}", self.start, self.end)
     }
 }

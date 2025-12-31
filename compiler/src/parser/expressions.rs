@@ -1,13 +1,13 @@
 use std::{ops::Range, str::FromStr};
 
 use crate::{
+    helpers::Span,
     lexer::{Token, TokenType},
     parser::ast::ExprS,
-    span::Span,
 };
 
 use super::{
-    ParseResult, ParseTokenError, Parser,
+    ParseError, ParseResult, Parser,
     ast::{Bop, Expr, Unop},
 };
 
@@ -16,7 +16,10 @@ impl<I: Iterator<Item = Token>> Parser<'_, I> {
         self.parse_expression(0)
     }
 
-    #[allow(clippy::too_many_lines, reason = "still readable and segmented via the match")]
+    #[allow(
+        clippy::too_many_lines,
+        reason = "still readable and segmented via the match"
+    )]
     fn parse_expression(&mut self, binding_power: u8) -> ParseResult<ExprS> {
         let mut lhs = match self.peek() {
             TokenType::LParen => {
@@ -207,7 +210,7 @@ impl<I: Iterator<Item = Token>> Parser<'_, I> {
                 Expr::Block { exprs, trailing }.spanned(start..end)
             }
             token => {
-                return Err(ParseTokenError::Unexpected(
+                return Err(ParseError::Unexpected(
                     token,
                     Some("start of expression".into()),
                 ));
@@ -289,7 +292,7 @@ impl<I: Iterator<Item = Token>> Parser<'_, I> {
                 | TokenType::Struct
                 | TokenType::Enum => break,
                 token => {
-                    return Err(ParseTokenError::Unexpected(
+                    return Err(ParseError::Unexpected(
                         token,
                         Some("end of expression".into()),
                     ));

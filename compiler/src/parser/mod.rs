@@ -1,4 +1,5 @@
-mod ast;
+pub mod ast;
+mod error;
 mod expressions;
 mod helpers;
 mod items;
@@ -6,36 +7,9 @@ mod items;
 mod test;
 
 use crate::lexer::{Lexer, Token, TokenType};
-use std::{error::Error, fmt::Display, iter::Peekable};
+use std::iter::Peekable;
 
-#[derive(Debug)]
-pub enum ParseTokenError {
-    Mismatched {
-        expected: TokenType,
-        found: TokenType,
-    },
-    Unexpected(TokenType, Option<String>),
-    Missing,
-}
-
-impl Display for ParseTokenError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Mismatched { expected, found } => {
-                write!(f, "expected token {expected}, found token {found}")
-            }
-            Self::Unexpected(token, Some(desc)) => {
-                write!(f, "unexpected token `{token}` at {desc}")
-            }
-            Self::Unexpected(token, None) => write!(f, "unexpected token `{token:?}`"),
-            Self::Missing => "expected another token".fmt(f),
-        }
-    }
-}
-
-impl Error for ParseTokenError {}
-
-type ParseResult<T> = Result<T, ParseTokenError>;
+pub use error::{ParseError, ParseResult};
 
 pub struct Parser<'input, I>
 where
@@ -83,11 +57,11 @@ impl<I: Iterator<Item = Token>> Parser<'_, I> {
     /// Move forward one token in the input and check
     /// that we pass the kind of token we expect.
     pub(crate) fn consume(&mut self, expected: TokenType) -> ParseResult<Token> {
-        let next = self.next().ok_or(ParseTokenError::Missing)?;
+        let next = self.next().ok_or(ParseError::Missing)?;
         if next.inner == expected {
             Ok(next)
         } else {
-            Err(ParseTokenError::Mismatched {
+            Err(ParseError::Mismatched {
                 expected,
                 found: next.inner,
             })

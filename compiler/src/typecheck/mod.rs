@@ -1,8 +1,31 @@
-use std::{collections::HashMap, iter};
+mod error;
 
-/// A concrete type that has been fully inferred
-#[derive(Debug)]
-enum Type {
+use std::{collections::HashMap, fmt::Display, iter, slice};
+
+use crate::{
+    helpers::{Span, Spanned, concat},
+    parser::ast::{Ast, BindingS, Binding, Expr, ExprS, Item, Type as AstType, TypeS as AstTypeS, Unop},
+};
+
+use error::{TypeError, TypeResult};
+
+macro_rules! Unit {
+    () => {
+        Type::Tuple(vec![])
+    };
+}
+
+macro_rules! check_type {
+    ($self:expr, $e:expr, $t:path) => {
+        match $self.type_of($e)? {
+            $t => (),
+            other => return Err(TypeError::MismatchedTypes(other, $t).spanned($e.span)),
+        }
+    };
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Type {
     Int,
     UInt,
     Byte,
@@ -12,131 +35,282 @@ enum Type {
     Char,
     Array(Box<Type>),
     Tuple(Vec<Type>),
-    Func(Vec<Type>, Box<Type>),
-    Struct(String, Vec<Type>),
-    Enum(String, Vec<Type>),
+    Fn {
+        params: Vec<Type>,
+        result: Box<Type>,
+    },
+    Named {
+        name: String,
+        generics: Vec<Type>,
+    },
+    Never,
 }
 
-/// A identifier to uniquely refer to our type terms
-pub type TypeId = usize;
+impl From<&AstType> for Type {
+    fn from(value: &AstType) -> Self {
+        match value {
+            AstType::Named { name, generics } => {
+                if generics.is_empty() {
+                    match name.as_str() {
+                        "Int" => return Self::Int,
+                        "UInt" => return Self::UInt,
+                        "Byte" => return Self::Byte,
+                        "Float" => return Self::Float,
+                        "Bool" => return Self::Bool,
+                        "Str" => return Self::Str,
+                        "Char" => return Self::Char,
+                        _ => (),
+                    }
+                }
 
-/// Information about a type term
-#[derive(Clone, Debug)]
-enum TypeInfo {
-    // No information about the type of this type term
-    Unknown,
-    // This type term is the same as another type term
-    Ref(TypeId),
-    Int,
-    UInt,
-    Byte,
-    Float,
-    Bool,
-    Str,
-    Char,
-    Array(TypeId),
-    Tuple(Vec<TypeId>),
-    Func(Vec<TypeId>, TypeId),
-    Struct(String, Vec<TypeId>),
-    Enum(String, Vec<TypeId>),
+                Self::Named {
+                    name: name.to_owned(),
+                    generics: generics.iter().map(|t| t.into()).collect(),
+                }
+            }
+            AstType::Array(inner) => Self::Array(Box::new((&inner.inner).into())),
+            AstType::Tuple(inners) => {
+                Self::Tuple(inners.iter().map(|t| t.into()).collect())
+            }
+            AstType::Fn { params, result } => Self::Fn {
+                params: params.iter().map(|t| t.into()).collect(),
+                result: Box::new(result.as_ref().into()),
+            },
+        }
+    }
 }
 
-#[derive(Default)]
-struct Engine {
-    id_counter: usize, // Used to generate unique IDs
-    vars: HashMap<TypeId, TypeInfo>,
+impl From<&AstTypeS> for Type {
+    fn from(value: &AstTypeS) -> Self {
+        (&value.inner).into()
+    }
 }
 
-impl Engine {
-    /// Create a new type term with whatever we have about its type
-    pub fn insert(&mut self, info: TypeInfo) -> TypeId {
-        // Generate a new ID for our type term
-        self.id_counter += 1;
-        let id = self.id_counter;
-        self.vars.insert(id, info);
-        id
+impl Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Type::Int => "Int".fmt(f),
+            Type::UInt => "UInt".fmt(f),
+            Type::Byte => "Byte".fmt(f),
+            Type::Float => "Float".fmt(f),
+            Type::Bool => "Bool".fmt(f),
+            Type::Str => "Str".fmt(f),
+            Type::Char => "Char".fmt(f),
+            Type::Array(inner) => write!(f, "[{inner}]"),
+            Type::Tuple(items) => write!(f, "({})", concat(items)),
+            Type::Fn { params, result } => write!(f, "fn({}): {result}", concat(params)),
+            Type::Named { name, generics } => {
+                if generics.is_empty() {
+                    write!(f, "{name}")
+                } else {
+                    write!(f, "{name}<{}>", concat(generics))
+                }
+            }
+            Type::Never => "!".fmt(f),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct TypeChecker {
+    env: HashMap<String, Type>,
+}
+
+impl TypeChecker {
+    pub fn new(ast: &Ast) -> Self {
+        let mut new = Self {
+            env: HashMap::with_capacity(ast.len()),
+        };
+
+        for item in ast {
+            // match &item.inner {
+            //     Item::Const { name, ty, value } => todo!(),
+            //     Item::Function {
+            //         name,
+            //         params,
+            //         return_type,
+            //         body,
+            //     } => todo!(),
+            //     Item::Struct {
+            //         name,
+            //         generic_params,
+            //         fields,
+            //     } => todo!(),
+            //     Item::Enum {
+            //         name,
+            //         generic_params,
+            //         variants,
+            //     } => todo!(),
+            // }
+        }
+
+        new
     }
 
-    /// Make the types of two type terms equivalent (or produce an error if
-    /// there is a conflict between them)
-    pub fn unify(&mut self, a: TypeId, b: TypeId) -> Result<(), String> {
-        use TypeInfo::*;
-        match (self.vars[&a].clone(), self.vars[&b].clone()) {
-            // Follow any references
-            (Ref(a), _) => self.unify(a, b),
-            (_, Ref(b)) => self.unify(a, b),
+    pub fn check(&self, exprs: &[ExprS]) -> TypeResult<Vec<Type>> {
+        let mut env = self.clone();
 
-            // When we don't know anything about either term, assume that
-            // they match and make the one we know nothing about reference the
-            // one we may know something about
-            (Unknown, _) => {
-                self.vars.insert(a, TypeInfo::Ref(b));
-                Ok(())
-            }
-            (_, Unknown) => {
-                self.vars.insert(b, TypeInfo::Ref(a));
-                Ok(())
-            }
+        let mut types = Vec::with_capacity(exprs.len());
 
-            // Primitives are trivial to unify
-            (Int, Int) => Ok(()),
-            (UInt, UInt) => Ok(()),
-            (Byte, Byte) => Ok(()),
-            (Float, Float) => Ok(()),
-            (Bool, Bool) => Ok(()),
-            (Str, Str) => Ok(()),
-            (Char, Char) => Ok(()),
+        for expr in exprs {
+            types.push(env.type_of(expr)?);
+        }
 
-            // When unifying complex types, we must check their sub-types. This
-            // can be trivially implemented for tuples, sum types, etc.
-            (Tuple(a), Tuple(b)) => self.unify_vec(a, b),
-            (Array(a_item), Array(b_item)) => self.unify(a_item, b_item),
-            (Func(a_i, a_o), Func(b_i, b_o)) => {
-                self.unify_vec(a_i, b_i).and_then(|_| self.unify(a_o, b_o))
-            }
-            (Struct(a_n, a_g), Struct(b_n, b_g)) => (a_n == b_n)
-                .then_some(())
-                .ok_or_else(|| format!("Conflict between {a_n:?} and {b_n:?}"))
-                .and_then(|()| self.unify_vec(a_g, b_g)),
+        Ok(types)
+    }
 
-            // If no previous attempts to unify were successful, raise an error
-            (a, b) => Err(format!("Conflict between {a:?} and {b:?}")),
+    pub fn type_of(&mut self, expr: &ExprS) -> TypeResult {
+        match &expr.inner {
+            Expr::Ident(ident) => self.type_of_ident(ident, &expr.span),
+            Expr::Int(_) => todo!(),
+            Expr::Float(_) => Ok(Type::Float),
+            Expr::Str(_) => Ok(Type::Str),
+            Expr::Char(_) => Ok(Type::Char),
+            Expr::Bool(_) => Ok(Type::Bool),
+            Expr::Array(vals) => todo!(),
+            Expr::Tuple(vals) => self.type_of_tuple(vals),
+            Expr::FnCall { fun, args } => self.type_of_fn_call(fun, args, &expr.span),
+            Expr::BinaryOp { op, lhs, rhs } => todo!(),
+            Expr::UnaryOp { op, expr } => self.type_of_unary_op(*op, expr),
+            Expr::Index { arr, index } => self.type_of_index(arr, index),
+            Expr::FieldAccess { base, field } => todo!(),
+            Expr::If { cond, th, el } => self.type_of_if(cond, th, el.as_deref(), &expr.span),
+            Expr::Let { binding, value } => self.type_of_let(binding, value),
+            Expr::Assign { .. } => Ok(Unit!()),
+            Expr::Lambda {
+                params,
+                return_type,
+                body,
+            } => todo!(),
+            Expr::Block { exprs, trailing } => self.type_of_block(exprs, *trailing),
         }
     }
 
-    pub fn unify_vec(&mut self, a: Vec<TypeId>, b: Vec<TypeId>) -> Result<(), String> {
-        iter::zip(a, b).try_for_each(|(a, b)| self.unify(a, b))
+    fn type_of_ident(&self, ident: &str, span: &Span) -> TypeResult {
+        self.env
+            .get(ident)
+            .cloned()
+            .ok_or_else(|| TypeError::UnboundIdent(ident.to_owned()).spanned(span))
     }
 
-    /// Attempt to reconstruct a concrete type from the given type term ID. This
-    /// may fail if we don't yet have enough information to figure out what the
-    /// type is.
-    pub fn reconstruct(&self, id: TypeId) -> Result<Type, String> {
-        use TypeInfo::*;
-        match &self.vars[&id] {
-            Unknown => Err("Cannot infer".to_string()),
-            Ref(id) => self.reconstruct(*id),
-            Int => Ok(Type::Int),
-            UInt => Ok(Type::UInt),
-            Byte => Ok(Type::Byte),
-            Float => Ok(Type::Float),
-            Str => Ok(Type::Str),
-            Char => Ok(Type::Char),
-            Bool => Ok(Type::Bool),
-            Tuple(types) => Ok(Type::Tuple(self.reconstruct_vec(types)?)),
-            Array(item) => Ok(Type::Array(Box::new(self.reconstruct(*item)?))),
-            Func(i, o) => Ok(Type::Func(
-                self.reconstruct_vec(i)?,
-                Box::new(self.reconstruct(*o)?),
-            )),
-            Struct(name, generics) => {
-                Ok(Type::Struct(name.clone(), self.reconstruct_vec(generics)?))
+    fn type_of_tuple(&mut self, vals: &[ExprS]) -> TypeResult {
+        Ok(Type::Tuple(
+            vals.iter()
+                .map(|e| self.type_of(e))
+                .collect::<TypeResult<Vec<Type>>>()?,
+        ))
+    }
+
+    fn type_of_fn_call(&mut self, fun: &ExprS, args: &Vec<ExprS>, span: &Span) -> TypeResult {
+        let (param_tys, result_ty) = match self.type_of(fun)? {
+            Type::Fn { params, result } => (params, *result),
+            other => return Err(todo!()),
+        };
+
+        if param_tys.len() != args.len() {
+            return Err(TypeError::WrongArgCount(param_tys.len(), args.len()).spanned(span));
+        }
+
+        iter::zip(param_tys, args).try_for_each(|(p, a)| {
+            let arg_ty = self.type_of(a)?;
+
+            if p != arg_ty {
+                Err(TypeError::MismatchedTypes(p, arg_ty).spanned(a.span))
+            } else {
+                Ok(())
             }
-            Enum(name, generics) => Ok(Type::Struct(name.clone(), self.reconstruct_vec(generics)?)),
+        })?;
+
+        Ok(result_ty)
+    }
+
+    fn type_of_unary_op(&mut self, op: Unop, expr: &ExprS) -> TypeResult {
+        match op {
+            Unop::Not => {
+                check_type!(self, expr, Type::Bool);
+                Ok(Type::Bool)
+            }
+            Unop::Neg => {
+                check_type!(self, expr, Type::Int);
+                Ok(Type::Int)
+            }
         }
     }
 
-    pub fn reconstruct_vec(&self, ids: &[TypeId]) -> Result<Vec<Type>, String> {
-        ids.iter().map(|i| self.reconstruct(*i)).collect()
+    fn type_of_index(&mut self, arr: &ExprS, index: &ExprS) -> TypeResult {
+        check_type!(self, index, Type::UInt);
+
+        let Type::Array(ref inner) = self.type_of(arr)? else {
+            return Err(todo!());
+        };
+
+        Ok(*inner.clone())
+    }
+
+    fn type_of_if(
+        &mut self,
+        cond: &ExprS,
+        th: &ExprS,
+        el: Option<&ExprS>,
+        span: &Span,
+    ) -> TypeResult {
+        check_type!(self, cond, Type::Bool);
+
+        let th_types = self.check(slice::from_ref(th))?;
+
+        if let Some(el) = el {
+            let el_type = self
+                .check(slice::from_ref(el))?
+                .last()
+                .cloned()
+                .unwrap_or(Unit!());
+            let th_type = th_types.last().cloned().unwrap_or(Unit!());
+
+            if el_type == th_type {
+                Ok(th_type)
+            } else {
+                Err(TypeError::MismatchedBranches(th_type, el_type).spanned(span))
+            }
+        } else {
+            Ok(Unit!())
+        }
+    }
+
+    fn type_of_let(&mut self, binding: &BindingS, value: &ExprS) -> TypeResult {
+        let Binding::Var { mutable, ident, type_annotation } = &binding.inner;
+
+        let ty = match self.type_of(value) {
+            Ok(ty) => ty,
+            Err(Spanned { inner: TypeError::CantInfer(options), span }) => {
+                let Some(ty) = type_annotation else {
+                    return Err(TypeError::CantInfer(options).spanned(span))
+                };
+                let ty: Type = ty.into();
+                if options.is_empty() {
+                    ty
+                } else {
+                    if options.contains(&ty) {
+                        ty
+                    } else {
+                        todo!()
+                    }
+                }
+            },
+            other => return other
+        };
+
+        self.env.insert(ident.to_owned(), ty);
+
+        Ok(Unit!())
+    }
+
+    fn type_of_block(&self, exprs: &[ExprS], trailing: bool) -> TypeResult {
+        let types = self.check(exprs)?;
+
+        Ok(if trailing && let Some(last) = types.last().cloned() {
+            last
+        } else {
+            Unit!()
+        })
     }
 }

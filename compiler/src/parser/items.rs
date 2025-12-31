@@ -1,13 +1,13 @@
 use std::ops::Range;
 
 use crate::{
+    helpers::Span,
     lexer::{Token, TokenType},
     parser::ast::FieldS,
-    span::Span,
 };
 
 use super::{
-    ParseResult, ParseTokenError, Parser,
+    ParseError, ParseResult, Parser,
     ast::{Ast, Field, Item, ItemS, Variant},
 };
 
@@ -107,7 +107,7 @@ impl<I: Iterator<Item = Token>> Parser<'_, I> {
                             }
                             TokenType::Comma => Variant::Unit(variant_name).spanned(name_span),
                             token => {
-                                return Err(ParseTokenError::Unexpected(
+                                return Err(ParseError::Unexpected(
                                     token,
                                     Some("after variant name. expected one of `,` `(` `{`".into()),
                                 ));
@@ -126,10 +126,7 @@ impl<I: Iterator<Item = Token>> Parser<'_, I> {
                 .spanned(start..variants_span.end)
             }
             token => {
-                return Err(ParseTokenError::Unexpected(
-                    token,
-                    Some("start of item".into()),
-                ));
+                return Err(ParseError::Unexpected(token, Some("start of item".into())));
             }
         })
     }
@@ -161,7 +158,7 @@ impl<I: Iterator<Item = Token>> Parser<'_, I> {
                         (this.input[Range::from(span)].to_string(), span.start)
                     }
                     other_type => {
-                        return Err(ParseTokenError::Mismatched {
+                        return Err(ParseError::Mismatched {
                             expected: TokenType::Ident,
                             found: other_type,
                         });

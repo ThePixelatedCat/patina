@@ -3,10 +3,10 @@ use std::{env, fs};
 
 use crate::parser::Parser;
 
+mod helpers;
 mod lexer;
 mod parser;
-//mod typecheck;
-mod span;
+mod typecheck;
 
 //use parser::Parser;
 
@@ -20,6 +20,8 @@ fn main() -> anyhow::Result<()> {
 
     let ast = parser.file()?;
     println!("{ast:?}");
+
+    typecheck::TypeChecker::new(&ast).check(&[parser::ast::Expr::Int(42).spanned(0..2)])?;
 
     Ok(())
 }
