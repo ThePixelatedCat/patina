@@ -1,4 +1,4 @@
-use crate::span;
+use crate::{helpers::Spanned, span};
 
 pub type Ast = Vec<ItemS>;
 
@@ -100,7 +100,7 @@ pub enum Expr {
     },
     FieldAccess {
         base: Box<ExprS>,
-        field: String,
+        field: Spanned<String>,
     },
     If {
         cond: Box<ExprS>,
@@ -112,7 +112,7 @@ pub enum Expr {
         value: Box<ExprS>,
     },
     Assign {
-        ident: String,
+        ident: Spanned<String>,
         value: Box<ExprS>,
     },
     Lambda {

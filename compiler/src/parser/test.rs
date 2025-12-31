@@ -1,3 +1,5 @@
+use crate::helpers::Spanned;
+
 use super::Parser;
 use super::ast::{Ast, Binding, Bop, Expr, ExprS, Field, Item, ItemS, Type, Unop, Variant};
 
@@ -283,7 +285,7 @@ fn parse_compound_expressions() {
         expr,
         Expr::FieldAccess {
             base: Expr::Ident("self".into()).spanned(0..4).into(),
-            field: "_0".into()
+            field: Spanned { inner: "_0".into(), span: (5..7).into() }
         }
         .spanned(0..7)
     );
@@ -342,7 +344,7 @@ fn parse_var_expresssions() {
     assert_eq!(
         expr,
         Expr::Assign {
-            ident: "y".into(),
+            ident: Spanned { inner: "y".into(), span: (0..1).into() },
             value: Expr::BinaryOp {
                 op: Bop::Add,
                 lhs: Expr::Int(3).spanned(4..5).into(),
@@ -402,7 +404,7 @@ fn parse_block_expressions() {
                 }
                 .spanned(38..47),
                 Expr::Assign {
-                    ident: "y".into(),
+                    ident: Spanned { inner: "y".into(), span: (57..58).into() },
                     value: Expr::Int(1).spanned(61..62).into()
                 }
                 .spanned(57..62),
@@ -729,7 +731,7 @@ fn parse_file() {
                     }
                     .spanned(85..122),
                     Expr::Assign {
-                        ident: "x".into(),
+                        ident: Spanned { inner: "x".into(), span: (136..137).into() },
                         value: Expr::If {
                             cond: Expr::BinaryOp {
                                 op: Bop::Lt,
@@ -753,7 +755,7 @@ fn parse_file() {
                                                 base: Expr::Ident("bar".into())
                                                     .spanned(181..184)
                                                     .into(),
-                                                field: "value".into()
+                                                field: Spanned { inner: "value".into(), span: (185..190).into() }
                                             }
                                             .spanned(181..190)
                                             .into(),
