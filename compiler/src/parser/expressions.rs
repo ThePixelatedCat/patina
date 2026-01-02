@@ -102,7 +102,10 @@ impl<I: Iterator<Item = Token>> Parser<'_, I> {
                     let end = val.span.end;
 
                     Expr::Assign {
-                        ident: Spanned { inner: ident, span: token.span},
+                        ident: Spanned {
+                            inner: ident,
+                            span: token.span,
+                        },
                         value: val.into(),
                     }
                     .spanned(token.span.start..end)
@@ -259,7 +262,10 @@ impl<I: Iterator<Item = Token>> Parser<'_, I> {
 
                     lhs = Expr::FieldAccess {
                         base: Box::new(lhs),
-                        field: Spanned { inner: field, span: field_span },
+                        field: Spanned {
+                            inner: field,
+                            span: field_span,
+                        },
                     }
                     .spanned(start..end);
                     continue;

@@ -1,9 +1,12 @@
-use std::{fmt::Display, ops::{Deref, Range}};
+use std::{
+    fmt::Display,
+    ops::{Deref, Range},
+};
 
-pub fn concat(items: &Vec<impl ToString>) -> String {
+pub fn concat(items: &[impl ToString]) -> String {
     items
         .iter()
-        .map(|t| t.to_string())
+        .map(ToString::to_string)
         .collect::<Vec<String>>()
         .join(", ")
 }
@@ -34,7 +37,10 @@ pub struct Spanned<T> {
 
 impl<'a, T> From<&'a Spanned<T>> for Spanned<&'a T> {
     fn from(value: &'a Spanned<T>) -> Self {
-        Self { inner: &value.inner, span: value.span }
+        Self {
+            inner: &value.inner,
+            span: value.span,
+        }
     }
 }
 
@@ -43,7 +49,10 @@ impl<T> Spanned<T> {
     where
         T: Deref,
     {
-        Spanned { inner: self.inner.deref(), span: self.span }
+        Spanned {
+            inner: &*self.inner,
+            span: self.span,
+        }
     }
 }
 

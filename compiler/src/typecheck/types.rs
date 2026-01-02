@@ -5,9 +5,9 @@ use crate::{
     parser::ast::{Type as AstType, TypeS as AstTypeS},
 };
 
-
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub enum Type {
+    GInt,
     Int,
     UInt,
     Byte,
@@ -26,6 +26,49 @@ pub enum Type {
         generics: Vec<Type>,
     },
     Never,
+    Any,
+}
+
+impl Type {
+    pub const fn is_integer(&self) -> bool {
+        matches!(self, Self::GInt | Self::Int | Self::UInt | Self::Byte)
+    }
+
+    pub fn is_numeric(&self) -> bool {
+        self.is_integer() || *self == Self::Float
+    }
+}
+
+impl PartialEq for Type {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::GInt, int) if int.is_integer() => true,
+            (int, Self::GInt) if int.is_integer() => true,
+            (Self::Array(l0), Self::Array(r0)) => l0 == r0,
+            (Self::Tuple(l0), Self::Tuple(r0)) => l0 == r0,
+            (
+                Self::Fn {
+                    params: l_params,
+                    result: l_result,
+                },
+                Self::Fn {
+                    params: r_params,
+                    result: r_result,
+                },
+            ) => l_params == r_params && l_result == r_result,
+            (
+                Self::Named {
+                    name: l_name,
+                    generics: l_generics,
+                },
+                Self::Named {
+                    name: r_name,
+                    generics: r_generics,
+                },
+            ) => l_name == r_name && l_generics == r_generics,
+            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+        }
+    }
 }
 
 impl From<&AstType> for Type {
@@ -47,15 +90,13 @@ impl From<&AstType> for Type {
 
                 Self::Named {
                     name: name.to_owned(),
-                    generics: generics.iter().map(|t| t.into()).collect(),
+                    generics: generics.iter().map(Self::from).collect(),
                 }
             }
             AstType::Array(inner) => Self::Array(Box::new((&inner.inner).into())),
-            AstType::Tuple(inners) => {
-                Self::Tuple(inners.iter().map(|t| t.into()).collect())
-            }
+            AstType::Tuple(inners) => Self::Tuple(inners.iter().map(Self::from).collect()),
             AstType::Fn { params, result } => Self::Fn {
-                params: params.iter().map(|t| t.into()).collect(),
+                params: params.iter().map(Self::from).collect(),
                 result: Box::new(result.as_ref().into()),
             },
         }
@@ -71,24 +112,26 @@ impl From<&AstTypeS> for Type {
 impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Type::Int => "Int".fmt(f),
-            Type::UInt => "UInt".fmt(f),
-            Type::Byte => "Byte".fmt(f),
-            Type::Float => "Float".fmt(f),
-            Type::Bool => "Bool".fmt(f),
-            Type::Str => "Str".fmt(f),
-            Type::Char => "Char".fmt(f),
-            Type::Array(inner) => write!(f, "[{inner}]"),
-            Type::Tuple(items) => write!(f, "({})", concat(items)),
-            Type::Fn { params, result } => write!(f, "fn({}): {result}", concat(params)),
-            Type::Named { name, generics } => {
+            Self::GInt => "{integer}".fmt(f),
+            Self::Int => "Int".fmt(f),
+            Self::UInt => "UInt".fmt(f),
+            Self::Byte => "Byte".fmt(f),
+            Self::Float => "Float".fmt(f),
+            Self::Bool => "Bool".fmt(f),
+            Self::Str => "Str".fmt(f),
+            Self::Char => "Char".fmt(f),
+            Self::Array(inner) => write!(f, "[{inner}]"),
+            Self::Tuple(items) => write!(f, "({})", concat(items)),
+            Self::Fn { params, result } => write!(f, "fn({}): {result}", concat(params)),
+            Self::Named { name, generics } => {
                 if generics.is_empty() {
                     write!(f, "{name}")
                 } else {
                     write!(f, "{name}<{}>", concat(generics))
                 }
             }
-            Type::Never => "!".fmt(f),
+            Self::Never => "!".fmt(f),
+            Self::Any => "{any}".fmt(f),
         }
     }
 }

@@ -1,11 +1,13 @@
 mod error;
+#[cfg(test)]
+mod test;
 mod types;
 
 use std::{collections::HashMap, iter, slice};
 
 use crate::{
     helpers::{Span, Spanned},
-    parser::ast::{Ast, BindingS, Binding, Expr, ExprS, Unop},
+    parser::ast::{Ast, Binding, BindingS, Bop, Expr, ExprS, Unop},
 };
 
 use error::{TypeError, TypeResult};
@@ -21,7 +23,13 @@ macro_rules! check_type {
     ($self:expr, $e:expr, $t:path) => {
         match $self.type_of($e)? {
             $t => (),
-            other => return Err(TypeError::MismatchedTypes(other, $t).spanned($e.span)),
+            other => {
+                return Err(TypeError::MismatchedTypes {
+                    found: other,
+                    expected: $t,
+                }
+                .spanned($e.span))
+            }
         }
     };
 }
@@ -29,10 +37,10 @@ macro_rules! check_type {
 #[derive(Clone)]
 pub struct BindingInfo {
     ty: Type,
-    mutable: bool
+    mutable: bool,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct TypeChecker {
     env: HashMap<String, BindingInfo>,
 }
@@ -82,16 +90,23 @@ impl TypeChecker {
 
     pub fn type_of(&mut self, expr: &ExprS) -> TypeResult {
         match &expr.inner {
-            Expr::Ident(ident) => self.type_of_ident(Spanned { inner: ident, span: expr.span }),
-            Expr::Int(_) => todo!(),
+            Expr::Ident(ident) => self.type_of_ident(Spanned {
+                inner: ident,
+                span: expr.span,
+            }),
+            Expr::Int(v) => Ok(if *v > i64::MAX as u64 {
+                Type::UInt
+            } else {
+                Type::GInt
+            }),
             Expr::Float(_) => Ok(Type::Float),
             Expr::Str(_) => Ok(Type::Str),
             Expr::Char(_) => Ok(Type::Char),
             Expr::Bool(_) => Ok(Type::Bool),
-            Expr::Array(vals) => todo!(),
+            Expr::Array(vals) => self.type_of_array(vals),
             Expr::Tuple(vals) => self.type_of_tuple(vals),
-            Expr::FnCall { fun, args } => self.type_of_fn_call(fun, args, &expr.span),
-            Expr::BinaryOp { op, lhs, rhs } => todo!(),
+            Expr::FnCall { fun, args } => self.type_of_fn_call(fun, args, expr.span),
+            Expr::BinaryOp { op, lhs, rhs } => self.type_of_binary_op(*op, lhs, rhs),
             Expr::UnaryOp { op, expr } => self.type_of_unary_op(*op, expr),
             Expr::Index { arr, index } => self.type_of_index(arr, index),
             Expr::FieldAccess { base, field } => todo!(),
@@ -115,6 +130,28 @@ impl TypeChecker {
             .ok_or_else(|| TypeError::UnboundIdent(ident.inner.to_owned()).spanned(ident.span))
     }
 
+    fn type_of_array(&mut self, vals: &[ExprS]) -> TypeResult {
+        let ty = match vals.first() {
+            Some(e) => self.type_of(e)?,
+            None => Type::Any,
+        };
+
+        vals[1..].iter().try_for_each(|v| {
+            let this_ty = self.type_of(v)?;
+            if this_ty == ty {
+                Ok(())
+            } else {
+                Err(TypeError::MismatchedTypes {
+                    found: this_ty,
+                    expected: ty.clone(),
+                }
+                .spanned(v.span))
+            }
+        })?;
+
+        Ok(Type::Array(ty.into()))
+    }
+
     fn type_of_tuple(&mut self, vals: &[ExprS]) -> TypeResult {
         Ok(Type::Tuple(
             vals.iter()
@@ -123,27 +160,113 @@ impl TypeChecker {
         ))
     }
 
-    fn type_of_fn_call(&mut self, fun: &ExprS, args: &Vec<ExprS>, span: &Span) -> TypeResult {
+    fn type_of_fn_call(&mut self, fun: &ExprS, args: &Vec<ExprS>, span: Span) -> TypeResult {
         let (param_tys, result_ty) = match self.type_of(fun)? {
             Type::Fn { params, result } => (params, *result),
             other => return Err(todo!()),
         };
 
         if param_tys.len() != args.len() {
-            return Err(TypeError::WrongArgCount(param_tys.len(), args.len()).spanned(span));
+            return Err(TypeError::WrongArgCount {
+                needed: param_tys.len(),
+                provided: args.len(),
+            }
+            .spanned(span));
         }
 
         iter::zip(param_tys, args).try_for_each(|(p, a)| {
             let arg_ty = self.type_of(a)?;
 
-            if p != arg_ty {
-                Err(TypeError::MismatchedTypes(p, arg_ty).spanned(a.span))
-            } else {
+            if p == arg_ty {
                 Ok(())
+            } else {
+                Err(TypeError::MismatchedTypes {
+                    found: p,
+                    expected: arg_ty,
+                }
+                .spanned(a.span))
             }
         })?;
 
         Ok(result_ty)
+    }
+
+    fn type_of_binary_op(&mut self, op: Bop, lhs: &ExprS, rhs: &ExprS) -> TypeResult {
+        match op {
+            Bop::Add | Bop::Sub | Bop::Mul | Bop::Div | Bop::Exp => {
+                let (lhs_ty, rhs_ty) = (self.type_of(lhs)?, self.type_of(rhs)?);
+
+                if !lhs_ty.is_numeric() {
+                    return Err(TypeError::NotNumeric(lhs_ty).spanned(lhs.span));
+                }
+
+                if !rhs_ty.is_numeric() {
+                    return Err(TypeError::NotNumeric(rhs_ty).spanned(rhs.span));
+                }
+
+                if lhs_ty != rhs_ty {
+                    return Err(TypeError::MismatchedTypes {
+                        found: rhs_ty,
+                        expected: lhs_ty,
+                    }
+                    .spanned(rhs.span));
+                }
+
+                Ok(lhs_ty)
+            }
+            Bop::And | Bop::Or | Bop::Xor => {
+                check_type!(self, lhs, Type::Bool);
+                check_type!(self, rhs, Type::Bool);
+                Ok(Type::Bool)
+            }
+            Bop::BOr | Bop::BAnd => {
+                let (lhs_ty, rhs_ty) = (self.type_of(lhs)?, self.type_of(rhs)?);
+
+                if !lhs_ty.is_integer() {
+                    return Err(TypeError::NotInteger(lhs_ty).spanned(lhs.span));
+                }
+
+                if !rhs_ty.is_integer() {
+                    return Err(TypeError::NotInteger(rhs_ty).spanned(rhs.span));
+                }
+
+                if lhs_ty != rhs_ty {
+                    return Err(TypeError::MismatchedTypes {
+                        found: rhs_ty,
+                        expected: lhs_ty,
+                    }
+                    .spanned(rhs.span));
+                }
+
+                Ok(lhs_ty)
+            }
+            Bop::Eqq | Bop::Neq => {
+                let (lhs_ty, rhs_ty) = (self.type_of(lhs)?, self.type_of(rhs)?);
+
+                if lhs_ty == rhs_ty {
+                    Ok(Type::Bool)
+                } else {
+                    Err(TypeError::MismatchedTypes {
+                        found: rhs_ty,
+                        expected: lhs_ty,
+                    }
+                    .spanned(rhs.span))
+                }
+            }
+            Bop::Gt | Bop::Lt | Bop::Geq | Bop::Leq => {
+                let (lhs_ty, rhs_ty) = (self.type_of(lhs)?, self.type_of(rhs)?);
+
+                if !lhs_ty.is_numeric() {
+                    return Err(TypeError::NotNumeric(lhs_ty).spanned(lhs.span));
+                }
+
+                if !rhs_ty.is_numeric() {
+                    return Err(TypeError::NotNumeric(rhs_ty).spanned(rhs.span));
+                }
+
+                Ok(Type::Bool)
+            }
+        }
     }
 
     fn type_of_unary_op(&mut self, op: Unop, expr: &ExprS) -> TypeResult {
@@ -152,10 +275,11 @@ impl TypeChecker {
                 check_type!(self, expr, Type::Bool);
                 Ok(Type::Bool)
             }
-            Unop::Neg => {
-                check_type!(self, expr, Type::Int);
-                Ok(Type::Int)
-            }
+            Unop::Neg => match self.type_of(expr)? {
+                Type::GInt => Ok(Type::Int),
+                ty @ (Type::Int | Type::Float) => Ok(ty),
+                other => Err(todo!()),
+            },
         }
     }
 
@@ -191,7 +315,11 @@ impl TypeChecker {
             if el_type == th_type {
                 Ok(th_type)
             } else {
-                Err(TypeError::MismatchedBranches(th_type, el_type).spanned(span))
+                Err(TypeError::MismatchedBranches {
+                    th: th_type,
+                    el: el_type,
+                }
+                .spanned(span))
             }
         } else {
             Ok(Unit!())
@@ -199,29 +327,32 @@ impl TypeChecker {
     }
 
     fn type_of_let(&mut self, binding: &BindingS, value: &ExprS) -> TypeResult {
-        let Binding::Var { mutable, ident, type_annotation } = &binding.inner;
+        let Binding::Var {
+            mutable,
+            ident,
+            type_annotation,
+        } = &binding.inner;
 
-        let ty = match self.type_of(value) {
-            Ok(ty) => ty,
-            Err(Spanned { inner: TypeError::CantInfer(options), span }) => {
-                let Some(ty) = type_annotation else {
-                    return Err(TypeError::CantInfer(options).spanned(span))
-                };
-                let ty: Type = ty.into();
-                if options.is_empty() {
+        let ty = match self.type_of(value)? {
+            Type::GInt => {
+                if let Some(ty) = type_annotation.as_ref().map(Type::from)
+                    && ty.is_integer()
+                {
                     ty
                 } else {
-                    if options.contains(&ty) {
-                        ty
-                    } else {
-                        todo!()
-                    }
+                    Type::GInt
                 }
-            },
-            other => return other
+            }
+            ty => ty,
         };
 
-        self.env.insert(ident.to_owned(), BindingInfo { ty, mutable: *mutable });
+        self.env.insert(
+            ident.to_owned(),
+            BindingInfo {
+                ty,
+                mutable: *mutable,
+            },
+        );
 
         Ok(Unit!())
     }
@@ -229,15 +360,21 @@ impl TypeChecker {
     fn type_of_assign(&mut self, ident: Spanned<&str>, value: &ExprS) -> TypeResult {
         let assigned_ty = self.type_of(value)?;
 
-        let info = self.env.get(ident.inner)
+        let info = self
+            .env
+            .get(ident.inner)
             .ok_or_else(|| TypeError::UnboundIdent(ident.inner.to_owned()).spanned(ident.span))?;
 
         if !info.mutable {
             return Err(TypeError::Mutation(ident.inner.to_owned()).spanned(ident.span));
         }
 
-        if info.ty != assigned_ty  {
-            return Err(TypeError::MismatchedTypes(assigned_ty, info.ty.clone()).spanned(value.span))
+        if info.ty != assigned_ty {
+            return Err(TypeError::MismatchedTypes {
+                found: assigned_ty,
+                expected: info.ty.clone(),
+            }
+            .spanned(value.span));
         }
 
         Ok(Unit!())
