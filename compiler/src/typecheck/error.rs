@@ -9,7 +9,7 @@ span! { TypeError as TypeErrorS }
 #[derive(Debug)]
 pub enum TypeError {
     UnboundIdent(String),
-    MismatchedTypes { found: Type, expected: Type },
+    MismatchedTypes(String, String),
     MismatchedBranches { th: Type, el: Type },
     WrongArgCount { needed: usize, provided: usize },
     CantInfer,
@@ -24,9 +24,9 @@ impl Display for TypeErrorS {
             TypeError::UnboundIdent(ident) => {
                 write!(f, "identifider `{ident}` at {} is unbound", self.span)
             }
-            TypeError::MismatchedTypes { found, expected } => write!(
+            TypeError::MismatchedTypes(type_a, type_b) => write!(
                 f,
-                "mismatched types at {}, found `{found}`, expected `{expected}`",
+                "mismatched types `{type_a}` and `{type_b}` at {}",
                 self.span
             ),
             TypeError::MismatchedBranches { th, el } => write!(
