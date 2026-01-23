@@ -4,7 +4,9 @@ use std::{collections::HashMap, fmt::Display, iter, slice};
 
 use crate::{
     helpers::{Span, Spanned, concat},
-    parser::ast::{Ast, BindingS, Binding, Expr, ExprS, Item, Type as AstType, TypeS as AstTypeS, Unop},
+    parser::ast::{
+        Ast, Binding, BindingS, Expr, ExprS, Item, Type as AstType, TypeS as AstTypeS, Unop,
+    },
 };
 
 use error::{TypeError, TypeResult};
@@ -69,9 +71,7 @@ impl From<&AstType> for Type {
                 }
             }
             AstType::Array(inner) => Self::Array(Box::new((&inner.inner).into())),
-            AstType::Tuple(inners) => {
-                Self::Tuple(inners.iter().map(|t| t.into()).collect())
-            }
+            AstType::Tuple(inners) => Self::Tuple(inners.iter().map(|t| t.into()).collect()),
             AstType::Fn { params, result } => Self::Fn {
                 params: params.iter().map(|t| t.into()).collect(),
                 result: Box::new(result.as_ref().into()),
@@ -277,26 +277,29 @@ impl TypeChecker {
     }
 
     fn type_of_let(&mut self, binding: &BindingS, value: &ExprS) -> TypeResult {
-        let Binding::Var { mutable, ident, type_annotation } = &binding.inner;
+        let Binding::Var {
+            mutable,
+            ident,
+            type_annotation,
+        } = &binding.inner;
 
         let ty = match self.type_of(value) {
             Ok(ty) => ty,
-            Err(Spanned { inner: TypeError::CantInfer(options), span }) => {
+            Err(Spanned {
+                inner: TypeError::CantInfer(options),
+                span,
+            }) => {
                 let Some(ty) = type_annotation else {
-                    return Err(TypeError::CantInfer(options).spanned(span))
+                    return Err(TypeError::CantInfer(options).spanned(span));
                 };
                 let ty: Type = ty.into();
                 if options.is_empty() {
                     ty
                 } else {
-                    if options.contains(&ty) {
-                        ty
-                    } else {
-                        todo!()
-                    }
+                    if options.contains(&ty) { ty } else { todo!() }
                 }
-            },
-            other => return other
+            }
+            other => return other,
         };
 
         self.env.insert(ident.to_owned(), ty);
