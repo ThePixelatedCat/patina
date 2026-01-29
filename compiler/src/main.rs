@@ -21,7 +21,7 @@ fn main() -> anyhow::Result<()> {
     let ast = parser.file()?;
     println!("{ast:?}");
 
-    typecheck::TypeChecker::new(&ast).check(&[parser::ast::Expr::Int(42).spanned(0..2)])?;
+    //typecheck::TypeChecker::new(&ast).check(&[parser::ast::Expr::Int(42).spanned(0..2)])?;
 
     Ok(())
 }
