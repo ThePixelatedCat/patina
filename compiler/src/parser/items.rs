@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use crate::{
-    helpers::Span,
+    helpers::Spanned,
     lexer::{Token, TokenType},
     parser::ast::FieldS,
 };
@@ -42,7 +42,7 @@ impl<I: Iterator<Item = Token>> Parser<'_, I> {
 
                 let (name, _) = self.ident()?;
 
-                let (params, _) =
+                let params =
                     self.delimited_list(Self::binding, TokenType::LParen, TokenType::RParen)?;
 
                 let return_type = if self.consume_at(TokenType::Colon) {
@@ -59,7 +59,7 @@ impl<I: Iterator<Item = Token>> Parser<'_, I> {
 
                 Item::Function {
                     name,
-                    params,
+                    params: params.inner,
                     return_type,
                     body,
                 }
@@ -70,7 +70,7 @@ impl<I: Iterator<Item = Token>> Parser<'_, I> {
 
                 let (name, generic_params) = self.type_name()?;
 
-                let (fields, span) = self.fields()?;
+                let Spanned { inner: fields, span} = self.fields()?;
                 let end = span.end;
 
                 Item::Struct {
@@ -85,19 +85,19 @@ impl<I: Iterator<Item = Token>> Parser<'_, I> {
 
                 let (name, generic_params) = self.type_name()?;
 
-                let (variants, variants_span) = self.delimited_list(
+                let Spanned { inner: variants, span: variants_span} = self.delimited_list(
                     |this| {
                         let (variant_name, name_span) = this.ident()?;
                         let start = name_span.start;
 
                         Ok(match this.peek() {
                             TokenType::LBrace => {
-                                let (fields, fields_span) = this.fields()?;
+                                let Spanned { inner: fields, span: fields_span} = this.fields()?;
                                 Variant::Struct(variant_name, fields)
                                     .spanned(start..fields_span.end)
                             }
                             TokenType::LParen => {
-                                let (vals, span) = this.delimited_list(
+                                let Spanned { inner: vals, span} = this.delimited_list(
                                     Self::type_,
                                     TokenType::LParen,
                                     TokenType::RParen,
@@ -140,7 +140,7 @@ impl<I: Iterator<Item = Token>> Parser<'_, I> {
                 TokenType::LAngle,
                 TokenType::RAngle,
             )?
-            .0
+            .inner
         } else {
             Vec::new()
         };
@@ -148,7 +148,7 @@ impl<I: Iterator<Item = Token>> Parser<'_, I> {
         Ok((name, generic_params))
     }
 
-    fn fields(&mut self) -> ParseResult<(Vec<FieldS>, Span)> {
+    fn fields(&mut self) -> ParseResult<Spanned<Vec<FieldS>>> {
         self.delimited_list(
             |this| {
                 let (name, start) = match this.peek() {
