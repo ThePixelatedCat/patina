@@ -56,6 +56,12 @@ impl<T> Spanned<T> {
     }
 }
 
+impl<T> Spanned<T> {
+    pub fn span(inner: T, span: impl Into<Span>) -> Self {
+        Self { inner, span: span.into() }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Span {
     pub start: usize,

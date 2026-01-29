@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use crate::{
-    helpers::Span,
+    helpers::{Span, Spanned},
     lexer::{Token, TokenType},
 };
 
@@ -46,7 +46,7 @@ impl<I: Iterator<Item = Token>> Parser<'_, I> {
                 let start = span.start;
 
                 let (generics, end) = if self.at(TokenType::LAngle) {
-                    let (generics, generics_span) =
+                    let Spanned { inner: generics, span: generics_span } =
                         self.delimited_list(Self::type_, TokenType::LAngle, TokenType::RAngle)?;
                     (generics, generics_span.end)
                 } else {
@@ -65,14 +65,14 @@ impl<I: Iterator<Item = Token>> Parser<'_, I> {
                 Type::Array(Box::new(inner_type)).spanned(start..end)
             }
             TokenType::LParen => {
-                let (types, span) =
+                let Spanned { inner: types, span} =
                     self.delimited_list(Self::type_, TokenType::LParen, TokenType::RParen)?;
                 Type::Tuple(types).spanned(span)
             }
             TokenType::Fn => {
                 let start = self.next().unwrap().span.start;
 
-                let (params, _) =
+                let Spanned { inner: params, .. } =
                     self.delimited_list(Self::type_, TokenType::LParen, TokenType::RParen)?;
 
                 self.consume(TokenType::Colon)?;
@@ -110,7 +110,7 @@ impl<I: Iterator<Item = Token>> Parser<'_, I> {
         mut f: F,
         start: TokenType,
         end: TokenType,
-    ) -> ParseResult<(Vec<T>, Span)>
+    ) -> ParseResult<Spanned<Vec<T>>>
     where
         F: FnMut(&mut Self) -> ParseResult<T>,
     {
@@ -126,6 +126,6 @@ impl<I: Iterator<Item = Token>> Parser<'_, I> {
         }
         let end = self.consume(end)?.span.end;
 
-        Ok((items, (start..end).into()))
+        Ok(Spanned::span(items, start..end))
     }
 }

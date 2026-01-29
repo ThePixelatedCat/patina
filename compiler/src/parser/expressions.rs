@@ -83,7 +83,7 @@ impl<I: Iterator<Item = Token>> Parser<'_, I> {
             TokenType::True => Expr::Bool(true).spanned(self.next().unwrap().span),
             TokenType::False => Expr::Bool(false).spanned(self.next().unwrap().span),
             TokenType::LBracket => {
-                let (arr, span) = self.delimited_list(
+                let Spanned { inner: arr, span } = self.delimited_list(
                     Self::expression,
                     TokenType::LBracket,
                     TokenType::RBracket,
@@ -173,9 +173,11 @@ impl<I: Iterator<Item = Token>> Parser<'_, I> {
                 }
                 .spanned(start..end)
             }
-            TokenType::Pipe => {
-                let (params, Span { start, .. }) =
-                    self.delimited_list(Self::binding, TokenType::Pipe, TokenType::Pipe)?;
+            TokenType::Fn => {
+                let start = self.next().unwrap().span.start;
+
+                let Spanned { inner: params, .. } =
+                    self.delimited_list(Self::binding, TokenType::LParen, TokenType::RParen)?;
 
                 let return_type = if self.consume_at(TokenType::Colon) {
                     Some(self.type_()?)
@@ -273,7 +275,7 @@ impl<I: Iterator<Item = Token>> Parser<'_, I> {
                 TokenType::LParen => {
                     let start = lhs.span.start;
 
-                    let (args, Span { end, .. }) = self.delimited_list(
+                    let Spanned { inner: args, span: Span { end, .. } } = self.delimited_list(
                         Self::expression,
                         TokenType::LParen,
                         TokenType::RParen,
