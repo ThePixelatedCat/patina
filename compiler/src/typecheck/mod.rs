@@ -48,20 +48,20 @@ impl TypeChecker {
         })
     }
 
-    pub fn unify(&mut self, a: Type, b: Type) -> Result<(), TypeError> {
+    pub fn unify(&mut self, a: &Type, b: &Type) -> Result<(), TypeError> {
         if let Some(n_a) = self.normalize(&a) {
-            return self.unify(n_a, b);
+            return self.unify(&n_a, b);
         } else if let Some(n_b) = self.normalize(&b) {
-            return self.unify(a, n_b);
+            return self.unify(a, &n_b);
         }
 
         match (a, b) {
             (Type::Var(a_id), Type::Var(b_id)) => {
-                Ok(self.table.unify_var_var(a_id, b_id).expect("infallible"))
+                Ok(self.table.unify_var_var(*a_id, *b_id).expect("infallible"))
             }
             (Type::Var(id), ty @ Type::Named(..)) | (ty @ Type::Named(..), Type::Var(id)) => {
-                if !self.occurs(id.into(), &ty) {
-                    Ok(self.table.unify_var_value(id, ty).expect("infallible"))
+                if !self.occurs((*id).into(), &ty) {
+                    Ok(self.table.unify_var_value(*id, ty.clone()).expect("infallible"))
                 } else {
                     Err(TypeError::Infinite)
                 }
@@ -134,10 +134,10 @@ impl TypeChecker {
             } else {
                 Type::GInt
             }),
-            Expr::Float(_) => Ok(Type::Named("$Float".to_string(), vec![])),
-            Expr::Str(_) => Ok(Type::Named("$String".to_string(), vec![])),
-            Expr::Char(_) => Ok(Type::Named("$Char".to_string(), vec![])),
-            Expr::Bool(_) => Ok(Type::Named("$Bool".to_string(), vec![])),
+            Expr::Float(_) => Ok(Type::float()),
+            Expr::Str(_) => Ok(Type::str()),
+            Expr::Char(_) => Ok(Type::char()),
+            Expr::Bool(_) => Ok(Type::bool()),
             Expr::Array(vals) => self.type_of_array(vals),
             Expr::Tuple(vals) => self.type_of_tuple(vals),
             Expr::FnCall { fun, args } => self.type_of_fn_call(fun, args, expr.span),
@@ -184,14 +184,14 @@ impl TypeChecker {
             }
         })?;
 
-        Ok(Type::Array(ty.into()))
+        Ok(Type::array(ty.into()))
     }
 
     fn type_of_tuple(&mut self, vals: &[ExprS]) -> TypeResult {
-        Ok(Type::Tuple(
+        Ok(Type::tuple(
             vals.iter()
                 .map(|e| self.type_of(e))
-                .collect::<TypeResult<Vec<Type>>>()?,
+                .collect::<TypeResult<_>>()?,
         ))
     }
 
@@ -335,30 +335,18 @@ impl TypeChecker {
         el: Option<&ExprS>,
         span: &Span,
     ) -> TypeResult {
-        check_type!(self, cond, Type::Bool);
+        let cond_type = self.type_of(cond)?;
+        self.unify(&cond_type, &Type::bool());
 
-        let th_types = self.check(slice::from_ref(th))?;
+        let th_type = self.type_of(th)?;
 
-        if let Some(el) = el {
-            let el_type = self
-                .check(slice::from_ref(el))?
-                .last()
-                .cloned()
-                .unwrap_or(Unit!());
-            let th_type = th_types.last().cloned().unwrap_or(Unit!());
+        let el_type = match el {
+            Some(el) => self.type_of(el)?,
+            None => Type::unit(),
+        };
 
-            if el_type == th_type {
-                Ok(th_type)
-            } else {
-                Err(TypeError::MismatchedBranches {
-                    th: th_type,
-                    el: el_type,
-                }
-                .spanned(span))
-            }
-        } else {
-            Ok(Unit!())
-        }
+        self.unify(&th_type, &el_type);
+        Ok(th_type)
     }
 
     fn type_of_let(&mut self, binding: &BindingS, value: &ExprS) -> TypeResult {

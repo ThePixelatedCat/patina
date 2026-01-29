@@ -2,7 +2,7 @@ use std::{cmp, convert::Infallible, iter};
 
 use ena::unify::{UnifyKey, UnifyValue};
 
-use crate::{parser::ast::Type as AstType, typecheck::error::TypeErrorS};
+use crate::parser::ast::Type as AstType;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
@@ -61,6 +61,40 @@ impl UnifyValue for Type {
                 panic!("shouldn't be unifying two concrete types")
             }
         }
+    }
+}
+
+impl Type {
+    pub fn named(name: &str) -> Self {
+        Self::Named(name.into(), vec![])
+    }
+
+    pub fn unit() -> Self {
+        Self::tuple(vec![])
+    }
+
+    pub fn bool() -> Self {
+        Self::named("$Bool")
+    }
+
+    pub fn float() -> Self {
+        Self::named("$Float")
+    }
+
+    pub fn char() -> Self {
+        Self::named("$Char")
+    }
+
+    pub fn str() -> Self {
+        Self::named("$Str")
+    }
+
+    pub fn array(of: Self) -> Self {
+        Self::Named(String::from("$Array"), vec![of])
+    }
+
+    pub fn tuple(of: Vec<Self>) -> Self {
+        Self::Named(String::from("$Tuple"), of)
     }
 }
 
